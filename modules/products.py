@@ -2,6 +2,24 @@ import streamlit as st
 import pandas as pd
 from .database import get_db_connection, execute_query, get_dataframe_from_query
 
+def perbarui_stok_produk(id_produk, perubahan_stok):
+    """Memperbarui stok produk (tambah atau kurangi)"""
+    query = '''
+    UPDATE products
+    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    '''
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (perubahan_stok, id_produk))
+        conn.commit()
+        conn.close()
+        return True, "Stok produk berhasil diperbarui"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
 def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     """Memproses transaksi dan menyimpan ke database"""
     if 'keranjang' not in st.session_state or not st.session_state.keranjang:
@@ -25,10 +43,10 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     try:
         # Masukkan header transaksi
         cursor.execute("""
-            INSERT INTO transactions 
-            (invoice_number, total_amount, payment_method, cashier_id, created_at) 
+            INSERT INTO transaction_items
+            (transaction_id, product_id, quantity, price_per_unit, subtotal)
             VALUES (?, ?, ?, ?, ?)
-        """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
+        """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))  # Asumsikan cashier_id adalah 1
         
         # Masukkan detail transaksi dan update stok
         for item in st.session_state.keranjang:
