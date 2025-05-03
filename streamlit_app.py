@@ -64,8 +64,10 @@ else:
         else:
             st.warning("Anda tidak memiliki izin untuk mengakses Manajemen Pengguna")
     
-    logout()  # Tombol logout
+    # Tombol logout
+    logout()
 
+    # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
     if st.session_state.user.get("role") == "admin":
         low_stock_df = get_low_stock_products(threshold=10)
         
