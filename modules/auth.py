@@ -39,17 +39,15 @@ def login_form():
                 return False
                 
             user = login(username, password)
-            if user:
-                st.session_state.user = user
-                st.session_state.authenticated = True
-                st.success(f"Selamat datang, {username}!")
-                st.rerun()  # Halaman di-refresh
-                return True
-            else:
-                st.error("Username atau password salah")
-                return False
-    
-    return False
+            if submit:
+                if user:
+                    st.session_state.user = user
+                    st.session_state.authenticated = True
+                    st.success(f"Selamat datang, {username}!")
+                    st.rerun()  # Ganti dengan st.rerun()
+                else:
+                    st.error("Username atau password salah")  
+            return False
 
 def init_auth():
     """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
