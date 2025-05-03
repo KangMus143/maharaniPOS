@@ -5,7 +5,7 @@ Modul produk untuk aplikasi MaharaniPOS
 import streamlit as st
 import pandas as pd
 import sqlite3
-from .database import dapatkan_koneksi_db, eksekusi_query, dapatkan_dataframe_dari_query
+from modules.database import dapatkan_koneksi_db, eksekusi_query, dapatkan_dataframe_dari_query
 
 def tambah_produk(nama, kategori, harga, stok):
     """Tambah produk baru ke database"""
