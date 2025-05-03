@@ -2,6 +2,80 @@ import streamlit as st
 import pandas as pd
 from .database import get_db_connection, execute_query, get_dataframe_from_query
 
+def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
+    """Memproses transaksi dan menyimpan ke database"""
+    if 'keranjang' not in st.session_state or not st.session_state.keranjang:
+        st.error("Keranjang belanja kosong.")
+        return False
+    
+    id_transaksi = hasilkan_id_transaksi()
+    total_belanja = dapatkan_total_keranjang()
+    
+    if jumlah_pembayaran < total_belanja:
+        st.error("Pembayaran kurang dari total belanja.")
+        return False
+    
+    jumlah_kembalian = jumlah_pembayaran - total_belanja
+    tanggal_transaksi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Masukkan header transaksi
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Masukkan header transaksi
+        cursor.execute("""
+            INSERT INTO transactions 
+            (invoice_number, total_amount, payment_method, cashier_id, created_at) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
+        
+        # Masukkan detail transaksi
+        for item in st.session_state.keranjang:
+            cursor.execute("""
+                INSERT INTO transaction_items
+                (transaction_id, product_id, quantity, price_per_unit, subtotal)
+                VALUES (?, ?, ?, ?, ?)
+            """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
+            
+            # Perbarui stok
+            perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok setelah transaksi
+
+        conn.commit()  # Simpan semua perubahan
+        bersihkan_keranjang()
+        return {
+            'id_transaksi': id_transaksi,
+            'total': total_belanja,
+            'pembayaran': jumlah_pembayaran,
+            'kembalian': jumlah_kembalian,
+            'tanggal': tanggal_transaksi
+        }
+    
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error dalam transaksi: {str(e)}")
+        return False
+    finally:
+        conn.close()
+
+def perbarui_stok_produk(id_produk, perubahan_stok):
+    """Memperbarui stok produk (tambah atau kurangi)"""
+    query = '''
+    UPDATE products
+    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    '''
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (perubahan_stok, id_produk))
+        conn.commit()
+        conn.close()
+        return True, "Stok produk berhasil diperbarui"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
 def get_product_categories():
     """Mengambil semua kategori produk yang ada di database"""
     query = "SELECT DISTINCT category FROM products ORDER BY category"
@@ -14,6 +88,33 @@ def get_product_categories():
 
     # Mengembalikan daftar kategori
     return [category[0] for category in categories]
+
+def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
+    """Dapatkan laporan penjualan antara dua tanggal"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                t.id_transaksi,
+                t.tanggal_transaksi,
+                t.nama_pelanggan,
+                t.total_belanja,
+                t.metode_pembayaran
+            FROM transaksi t
+            WHERE t.tanggal_transaksi BETWEEN ? AND ?
+            ORDER BY t.tanggal_transaksi DESC
+        """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
+        
+        transaksi = cursor.fetchall()
+        return [dict(row) for row in transaksi]
+    
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+        return []
+    finally:
+        conn.close()
 
 def get_low_stock_products(threshold=10):
     """Mengambil produk dengan stok di bawah threshold"""
