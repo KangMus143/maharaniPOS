@@ -5,6 +5,48 @@ import uuid
 from modules.database import get_db_connection
 from modules.products import ambil_produk_berdasarkan_id, perbarui_stok_produk
 
+def show_receipt(transaction_id):
+    """Menampilkan struk transaksi"""
+    # Ambil data transaksi berdasarkan ID
+    query = '''
+    SELECT t.invoice_number, t.total_amount, t.payment_method, t.created_at, u.username AS cashier
+    FROM transactions t
+    JOIN users u ON t.cashier_id = u.id
+    WHERE t.invoice_number = ?
+    '''
+    
+    conn = get_db_connection()
+    transaction = pd.read_sql_query(query, conn, params=(transaction_id,))
+    conn.close()
+    
+    if transaction.empty:
+        st.error(f"Transaksi dengan ID {transaction_id} tidak ditemukan.")
+    else:
+        st.subheader(f"Struk Transaksi {transaction_id}")
+        st.write(f"Nomor Faktur: {transaction.iloc[0]['invoice_number']}")
+        st.write(f"Total: Rp {transaction.iloc[0]['total_amount']:,.0f}")
+        st.write(f"Metode Pembayaran: {transaction.iloc[0]['payment_method']}")
+        st.write(f"Tanggal: {transaction.iloc[0]['created_at']}")
+        st.write(f"Kasir: {transaction.iloc[0]['cashier']}")
+        
+        # Tampilkan detail produk dalam transaksi
+        query_details = '''
+        SELECT ti.product_id, p.name, ti.quantity, ti.price_per_unit, ti.subtotal
+        FROM transaction_items ti
+        JOIN products p ON ti.product_id = p.id
+        WHERE ti.transaction_id = ?
+        '''
+        conn = get_db_connection()
+        items = pd.read_sql_query(query_details, conn, params=(transaction_id,))
+        conn.close()
+
+        if not items.empty:
+            st.write("**Detail Produk**")
+            for index, item in items.iterrows():
+                st.write(f"**{item['name']}** x {item['quantity']} - Rp {item['subtotal']:,.0f}")
+        else:
+            st.info("Tidak ada produk dalam transaksi.")
+
 def transaction_history():
     """Menampilkan riwayat transaksi"""
     st.title("Riwayat Transaksi")
