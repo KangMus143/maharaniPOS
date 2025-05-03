@@ -30,7 +30,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
             VALUES (?, ?, ?, ?, ?)
         """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
         
-        # Masukkan detail transaksi
+        # Masukkan detail transaksi dan update stok
         for item in st.session_state.keranjang:
             cursor.execute("""
                 INSERT INTO transaction_items
@@ -38,8 +38,8 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
                 VALUES (?, ?, ?, ?, ?)
             """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
             
-            # Perbarui stok
-            perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok setelah transaksi
+            # Perbarui stok di products
+            perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok produk
 
         conn.commit()  # Simpan semua perubahan
         bersihkan_keranjang()
