@@ -1,3 +1,4 @@
+import sqlite3
 import streamlit as st
 import hashlib
 from .database import get_db_connection
@@ -149,3 +150,41 @@ def logout():
         del st.session_state["user"]
     st.success("Anda telah logout.")
     st.experimental_rerun()
+
+def init_auth():
+    """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Membuat tabel pengguna jika belum ada
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    # Membuat pengguna admin default jika tidak ada pengguna
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        # Membuat pengguna default (admin)
+        default_username = "admin"
+        default_password = "admin123"
+        hashed_password = buat_hash(default_password)
+        
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (default_username, hashed_password, "admin")
+        )
+        conn.commit()
+
+    # Jangan tutup koneksi di sini, biarkan tetap terbuka
+    # conn.close()  # Hapus baris ini
+    
+    # Jika Anda ingin menutup koneksi, pastikan melakukannya setelah semua operasi selesai
+    return conn  # Anda bisa menutup koneksi saat sudah selesai menggunakan `conn.close()`
