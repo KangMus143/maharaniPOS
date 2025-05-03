@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 # Mengimpor fungsi-fungsi yang diperlukan dari modul
-from modules.auth import init_auth, login_form, logout
+from modules.auth import init_auth, login_form, logout, user_management
 from modules.database import init_database
 from modules.products import get_low_stock_products, product_management
 from modules.transactions import pos_interface, transaction_history
