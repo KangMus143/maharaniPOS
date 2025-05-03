@@ -2,128 +2,128 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import uuid
-from modules.database import get_db_connection
-from modules.products import get_product_by_id, update_product_stock
+from modules.database import dapatkan_koneksi_db
+from modules.products import dapatkan_produk_berdasarkan_id, perbarui_stok_produk
 
-def generate_transaction_id():
-    """Generate unique transaction ID with timestamp prefix"""
+def hasilkan_id_transaksi():
+    """Menghasilkan ID transaksi unik dengan awalan timestamp"""
     timestamp = datetime.now().strftime("%Y%m%d")
-    unique_id = str(uuid.uuid4()).split('-')[0]
-    return f"TRX-{timestamp}-{unique_id}"
+    id_unik = str(uuid.uuid4()).split('-')[0]
+    return f"TRX-{timestamp}-{id_unik}"
 
-def add_to_cart(product_id, quantity):
-    """Add product to shopping cart"""
-    if 'cart' not in st.session_state:
-        st.session_state.cart = []
+def tambah_ke_keranjang(id_produk, jumlah):
+    """Menambahkan produk ke keranjang belanja"""
+    if 'keranjang' not in st.session_state:
+        st.session_state.keranjang = []
     
-    product = get_product_by_id(product_id)
+    produk = dapatkan_produk_berdasarkan_id(id_produk)
     
-    if not product:
+    if not produk:
         st.error("Produk tidak ditemukan.")
         return False
     
-    if product['stock'] < quantity:
-        st.error(f"Stok tidak mencukupi. Tersedia: {product['stock']}")
+    if produk['stok'] < jumlah:
+        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stok']}")
         return False
     
-    # Check if product already in cart
-    for item in st.session_state.cart:
-        if item['product_id'] == product_id:
-            item['quantity'] += quantity
-            item['subtotal'] = item['quantity'] * item['price']
+    # Periksa apakah produk sudah ada di keranjang
+    for item in st.session_state.keranjang:
+        if item['id_produk'] == id_produk:
+            item['jumlah'] += jumlah
+            item['subtotal'] = item['jumlah'] * item['harga']
             return True
     
-    # Add new item to cart
-    st.session_state.cart.append({
-        'product_id': product_id,
-        'name': product['name'],
-        'price': product['price'],
-        'quantity': quantity,
-        'subtotal': product['price'] * quantity
+    # Tambahkan item baru ke keranjang
+    st.session_state.keranjang.append({
+        'id_produk': id_produk,
+        'nama': produk['nama'],
+        'harga': produk['harga'],
+        'jumlah': jumlah,
+        'subtotal': produk['harga'] * jumlah
     })
     return True
 
-def update_cart_item(index, quantity):
-    """Update quantity of item in cart"""
-    if 'cart' not in st.session_state or index >= len(st.session_state.cart):
+def perbarui_item_keranjang(indeks, jumlah):
+    """Memperbarui jumlah item di keranjang"""
+    if 'keranjang' not in st.session_state or indeks >= len(st.session_state.keranjang):
         return False
     
-    item = st.session_state.cart[index]
-    product = get_product_by_id(item['product_id'])
+    item = st.session_state.keranjang[indeks]
+    produk = dapatkan_produk_berdasarkan_id(item['id_produk'])
     
-    if product['stock'] < quantity:
-        st.error(f"Stok tidak mencukupi. Tersedia: {product['stock']}")
+    if produk['stok'] < jumlah:
+        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stok']}")
         return False
     
-    item['quantity'] = quantity
-    item['subtotal'] = quantity * item['price']
+    item['jumlah'] = jumlah
+    item['subtotal'] = jumlah * item['harga']
     return True
 
-def remove_from_cart(index):
-    """Remove item from cart"""
-    if 'cart' in st.session_state and index < len(st.session_state.cart):
-        st.session_state.cart.pop(index)
+def hapus_dari_keranjang(indeks):
+    """Menghapus item dari keranjang"""
+    if 'keranjang' in st.session_state and indeks < len(st.session_state.keranjang):
+        st.session_state.keranjang.pop(indeks)
         return True
     return False
 
-def clear_cart():
-    """Clear all items from cart"""
-    if 'cart' in st.session_state:
-        st.session_state.cart = []
+def bersihkan_keranjang():
+    """Menghapus semua item dari keranjang"""
+    if 'keranjang' in st.session_state:
+        st.session_state.keranjang = []
 
-def get_cart_total():
-    """Calculate total amount of all items in cart"""
-    if 'cart' not in st.session_state or not st.session_state.cart:
+def dapatkan_total_keranjang():
+    """Menghitung total jumlah semua item di keranjang"""
+    if 'keranjang' not in st.session_state or not st.session_state.keranjang:
         return 0
-    return sum(item['subtotal'] for item in st.session_state.cart)
+    return sum(item['subtotal'] for item in st.session_state.keranjang)
 
-def process_transaction(customer_name, payment_method, payment_amount):
-    """Process transaction and save to database"""
-    if 'cart' not in st.session_state or not st.session_state.cart:
+def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
+    """Memproses transaksi dan menyimpan ke database"""
+    if 'keranjang' not in st.session_state or not st.session_state.keranjang:
         st.error("Keranjang belanja kosong.")
         return False
     
-    transaction_id = generate_transaction_id()
-    total_amount = get_cart_total()
+    id_transaksi = hasilkan_id_transaksi()
+    total_belanja = dapatkan_total_keranjang()
     
-    if payment_amount < total_amount:
+    if jumlah_pembayaran < total_belanja:
         st.error("Pembayaran kurang dari total belanja.")
         return False
     
-    change_amount = payment_amount - total_amount
-    transaction_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    jumlah_kembalian = jumlah_pembayaran - total_belanja
+    tanggal_transaksi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Insert transaction header
-    conn = get_db_connection()
+    # Masukkan header transaksi
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
     try:
-        # Insert transaction header
+        # Masukkan header transaksi
         cursor.execute("""
-            INSERT INTO transactions 
-            (transaction_id, transaction_date, customer_name, total_amount, payment_method, payment_amount, change_amount) 
+            INSERT INTO transaksi 
+            (id_transaksi, tanggal_transaksi, nama_pelanggan, total_belanja, metode_pembayaran, jumlah_pembayaran, jumlah_kembalian) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (transaction_id, transaction_date, customer_name, total_amount, payment_method, payment_amount, change_amount))
+        """, (id_transaksi, tanggal_transaksi, nama_pelanggan, total_belanja, metode_pembayaran, jumlah_pembayaran, jumlah_kembalian))
         
-        # Insert transaction details
-        for item in st.session_state.cart:
+        # Masukkan detail transaksi
+        for item in st.session_state.keranjang:
             cursor.execute("""
-                INSERT INTO transaction_details
-                (transaction_id, product_id, quantity, price, subtotal)
+                INSERT INTO detail_transaksi
+                (id_transaksi, id_produk, jumlah, harga, subtotal)
                 VALUES (?, ?, ?, ?, ?)
-            """, (transaction_id, item['product_id'], item['quantity'], item['price'], item['subtotal']))
+            """, (id_transaksi, item['id_produk'], item['jumlah'], item['harga'], item['subtotal']))
             
-            # Update stock
-            update_product_stock(item['product_id'], -item['quantity'])
+            # Perbarui stok
+            perbarui_stok_produk(item['id_produk'], -item['jumlah'])
         
         conn.commit()
-        clear_cart()
+        bersihkan_keranjang()
         return {
-            'transaction_id': transaction_id,
-            'total': total_amount,
-            'payment': payment_amount,
-            'change': change_amount,
-            'date': transaction_date
+            'id_transaksi': id_transaksi,
+            'total': total_belanja,
+            'pembayaran': jumlah_pembayaran,
+            'kembalian': jumlah_kembalian,
+            'tanggal': tanggal_transaksi
         }
     
     except Exception as e:
@@ -133,37 +133,37 @@ def process_transaction(customer_name, payment_method, payment_amount):
     finally:
         conn.close()
 
-def get_transaction_by_id(transaction_id):
-    """Get transaction details by ID"""
-    conn = get_db_connection()
+def dapatkan_transaksi_berdasarkan_id(id_transaksi):
+    """Mendapatkan detail transaksi berdasarkan ID"""
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
     try:
-        # Get transaction header
+        # Dapatkan header transaksi
         cursor.execute("""
-            SELECT transaction_id, transaction_date, customer_name, 
-                   total_amount, payment_method, payment_amount, change_amount
-            FROM transactions
-            WHERE transaction_id = ?
-        """, (transaction_id,))
+            SELECT id_transaksi, tanggal_transaksi, nama_pelanggan, 
+                   total_belanja, metode_pembayaran, jumlah_pembayaran, jumlah_kembalian
+            FROM transaksi
+            WHERE id_transaksi = ?
+        """, (id_transaksi,))
         
-        transaction = cursor.fetchone()
-        if not transaction:
+        transaksi = cursor.fetchone()
+        if not transaksi:
             return None
         
-        # Get transaction details
+        # Dapatkan detail transaksi
         cursor.execute("""
-            SELECT td.product_id, p.name, td.quantity, td.price, td.subtotal
-            FROM transaction_details td
-            JOIN products p ON td.product_id = p.product_id
-            WHERE td.transaction_id = ?
-        """, (transaction_id,))
+            SELECT dt.id_produk, p.nama, dt.jumlah, dt.harga, dt.subtotal
+            FROM detail_transaksi dt
+            JOIN produk p ON dt.id_produk = p.id_produk
+            WHERE dt.id_transaksi = ?
+        """, (id_transaksi,))
         
-        details = cursor.fetchall()
+        detail = cursor.fetchall()
         
         return {
-            'header': dict(transaction),
-            'details': [dict(item) for item in details]
+            'header': dict(transaksi),
+            'detail': [dict(item) for item in detail]
         }
     
     except Exception as e:
@@ -172,21 +172,21 @@ def get_transaction_by_id(transaction_id):
     finally:
         conn.close()
 
-def get_recent_transactions(limit=10):
-    """Get list of recent transactions"""
-    conn = get_db_connection()
+def dapatkan_transaksi_terbaru(batas=10):
+    """Mendapatkan daftar transaksi terbaru"""
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
     try:
         cursor.execute("""
-            SELECT transaction_id, transaction_date, customer_name, total_amount, payment_method
-            FROM transactions
-            ORDER BY transaction_date DESC
+            SELECT id_transaksi, tanggal_transaksi, nama_pelanggan, total_belanja, metode_pembayaran
+            FROM transaksi
+            ORDER BY tanggal_transaksi DESC
             LIMIT ?
-        """, (limit,))
+        """, (batas,))
         
-        transactions = cursor.fetchall()
-        return [dict(row) for row in transactions]
+        transaksi = cursor.fetchall()
+        return [dict(row) for row in transaksi]
     
     except Exception as e:
         st.error(f"Error: {str(e)}")
@@ -194,37 +194,37 @@ def get_recent_transactions(limit=10):
     finally:
         conn.close()
 
-def search_transactions(keyword=None, start_date=None, end_date=None, limit=100):
-    """Search transactions based on criteria"""
-    conn = get_db_connection()
+def cari_transaksi(kata_kunci=None, tanggal_mulai=None, tanggal_akhir=None, batas=100):
+    """Mencari transaksi berdasarkan kriteria"""
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
     query = """
-        SELECT transaction_id, transaction_date, customer_name, total_amount, payment_method
-        FROM transactions
+        SELECT id_transaksi, tanggal_transaksi, nama_pelanggan, total_belanja, metode_pembayaran
+        FROM transaksi
         WHERE 1=1
     """
     params = []
     
-    if keyword:
-        query += " AND (transaction_id LIKE ? OR customer_name LIKE ?)"
-        params.extend([f"%{keyword}%", f"%{keyword}%"])
+    if kata_kunci:
+        query += " AND (id_transaksi LIKE ? OR nama_pelanggan LIKE ?)"
+        params.extend([f"%{kata_kunci}%", f"%{kata_kunci}%"])
     
-    if start_date:
-        query += " AND transaction_date >= ?"
-        params.append(start_date)
+    if tanggal_mulai:
+        query += " AND tanggal_transaksi >= ?"
+        params.append(tanggal_mulai)
     
-    if end_date:
-        query += " AND transaction_date <= ?"
-        params.append(end_date + " 23:59:59")
+    if tanggal_akhir:
+        query += " AND tanggal_transaksi <= ?"
+        params.append(tanggal_akhir + " 23:59:59")
     
-    query += " ORDER BY transaction_date DESC LIMIT ?"
-    params.append(limit)
+    query += " ORDER BY tanggal_transaksi DESC LIMIT ?"
+    params.append(batas)
     
     try:
         cursor.execute(query, params)
-        transactions = cursor.fetchall()
-        return [dict(row) for row in transactions]
+        transaksi = cursor.fetchall()
+        return [dict(row) for row in transaksi]
     
     except Exception as e:
         st.error(f"Error: {str(e)}")
@@ -232,8 +232,8 @@ def search_transactions(keyword=None, start_date=None, end_date=None, limit=100)
     finally:
         conn.close()
 
-def display_transaction_ui():
-    """Display transaction UI in Streamlit"""
+def tampilkan_ui_transaksi():
+    """Menampilkan UI transaksi di Streamlit"""
     st.header("Transaksi Penjualan")
     
     col1, col2 = st.columns([2, 1])
@@ -241,75 +241,75 @@ def display_transaction_ui():
     with col1:
         st.subheader("Tambah Produk")
         
-        # Search and add products
-        conn = get_db_connection()
+        # Cari dan tambahkan produk
+        conn = dapatkan_koneksi_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT product_id, name, price, stock FROM products WHERE stock > 0")
-        products = cursor.fetchall()
+        cursor.execute("SELECT id_produk, nama, harga, stok FROM produk WHERE stok > 0")
+        produk = cursor.fetchall()
         conn.close()
         
-        if not products:
+        if not produk:
             st.warning("Tidak ada produk tersedia.")
             return
         
-        product_options = {f"{p['name']} (Stok: {p['stock']})": p['product_id'] for p in products}
-        selected_product = st.selectbox("Pilih Produk", options=list(product_options.keys()))
-        selected_product_id = product_options[selected_product]
+        opsi_produk = {f"{p['nama']} (Stok: {p['stok']})": p['id_produk'] for p in produk}
+        produk_terpilih = st.selectbox("Pilih Produk", options=list(opsi_produk.keys()))
+        id_produk_terpilih = opsi_produk[produk_terpilih]
         
-        # Get selected product details
-        product = get_product_by_id(selected_product_id)
-        if product:
-            st.write(f"Harga: Rp {product['price']:,.0f}")
-            quantity = st.number_input("Jumlah", min_value=1, max_value=product['stock'], value=1)
+        # Dapatkan detail produk terpilih
+        produk = dapatkan_produk_berdasarkan_id(id_produk_terpilih)
+        if produk:
+            st.write(f"Harga: Rp {produk['harga']:,.0f}")
+            jumlah = st.number_input("Jumlah", min_value=1, max_value=produk['stok'], value=1)
             
             if st.button("Tambah ke Keranjang"):
-                if add_to_cart(selected_product_id, quantity):
+                if tambah_ke_keranjang(id_produk_terpilih, jumlah):
                     st.success("Produk ditambahkan ke keranjang.")
     
     with col2:
         st.subheader("Ringkasan")
         
-        # Display cart
-        if 'cart' not in st.session_state or not st.session_state.cart:
+        # Tampilkan keranjang
+        if 'keranjang' not in st.session_state or not st.session_state.keranjang:
             st.info("Keranjang belanja kosong.")
         else:
-            total = get_cart_total()
+            total = dapatkan_total_keranjang()
             st.write(f"Total: Rp {total:,.0f}")
             
-            # Payment form
-            customer_name = st.text_input("Nama Pelanggan", "")
-            payment_method = st.selectbox("Metode Pembayaran", ["Tunai", "Debit", "Kredit", "QRIS"])
-            payment_amount = st.number_input("Jumlah Pembayaran", min_value=float(total), value=float(total))
+            # Form pembayaran
+            nama_pelanggan = st.text_input("Nama Pelanggan", "")
+            metode_pembayaran = st.selectbox("Metode Pembayaran", ["Tunai", "Debit", "Kredit", "QRIS"])
+            jumlah_pembayaran = st.number_input("Jumlah Pembayaran", min_value=float(total), value=float(total))
             
             if st.button("Proses Transaksi"):
-                result = process_transaction(customer_name, payment_method, payment_amount)
-                if result:
-                    st.success(f"Transaksi berhasil! ID: {result['transaction_id']}")
-                    st.write(f"Total: Rp {result['total']:,.0f}")
-                    st.write(f"Pembayaran: Rp {result['payment']:,.0f}")
-                    st.write(f"Kembalian: Rp {result['change']:,.0f}")
+                hasil = proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran)
+                if hasil:
+                    st.success(f"Transaksi berhasil! ID: {hasil['id_transaksi']}")
+                    st.write(f"Total: Rp {hasil['total']:,.0f}")
+                    st.write(f"Pembayaran: Rp {hasil['pembayaran']:,.0f}")
+                    st.write(f"Kembalian: Rp {hasil['kembalian']:,.0f}")
     
-    # Display cart contents
-    if 'cart' in st.session_state and st.session_state.cart:
+    # Tampilkan isi keranjang
+    if 'keranjang' in st.session_state and st.session_state.keranjang:
         st.subheader("Keranjang Belanja")
         
-        for i, item in enumerate(st.session_state.cart):
+        for i, item in enumerate(st.session_state.keranjang):
             col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
             with col1:
-                st.write(f"{item['name']}")
+                st.write(f"{item['nama']}")
             with col2:
-                st.write(f"Rp {item['price']:,.0f}")
+                st.write(f"Rp {item['harga']:,.0f}")
             with col3:
-                st.write(f"x {item['quantity']}")
+                st.write(f"x {item['jumlah']}")
             with col4:
                 st.write(f"Rp {item['subtotal']:,.0f}")
             
             col1, col2 = st.columns([1, 5])
             with col1:
-                if st.button(f"Hapus", key=f"remove_{i}"):
-                    remove_from_cart(i)
+                if st.button(f"Hapus", key=f"hapus_{i}"):
+                    hapus_dari_keranjang(i)
                     st.experimental_rerun()
         
         if st.button("Bersihkan Keranjang"):
-            clear_cart()
+            bersihkan_keranjang()
             st.experimental_rerun()
