@@ -9,7 +9,7 @@ from modules.database import get_db_connection
 
 def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan antara dua tanggal"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()  # Ganti dengan get_db_connection()
     cursor = conn.cursor()
     
     try:
