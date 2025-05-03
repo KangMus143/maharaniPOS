@@ -5,7 +5,7 @@ import seaborn as sns
 import io
 import base64
 from datetime import datetime, timedelta
-from modules.database import dapatkan_koneksi_db
+from database import dapatkan_koneksi_db
 
 def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan antara dua tanggal"""
@@ -472,6 +472,65 @@ def tampilkan_dashboard_penjualan():
                 st.markdown(ekspor_ke_excel(data, f"stok_menipis_{datetime.now().strftime('%Y-%m-%d')}.xlsx"), unsafe_allow_html=True)
             with col2:
                 st.markdown(ekspor_ke_csv(data, f"stok_menipis_{datetime.now().strftime('%Y-%m-%d')}.csv"), unsafe_allow_html=True)
+
+def tampilkan_laporan_inventaris():
+    """Tampilkan UI laporan inventaris"""
+    st.header("Laporan Inventaris")
+    
+    # Gambaran inventaris
+    data_inventaris = dapatkan_laporan_inventaris()
+    if not data_inventaris:
+        st.info("Tidak ada data inventaris")
+        return
+    
+    # Metrik ringkasan
+    total_produk = len(data_inventaris)
+    total_nilai_inventaris = sum(item['nilai_inventaris'] for item in data_inventaris)
+    total_item = sum(item['stok'] for item in data_inventaris)
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Produk", f"{total_produk}")
+    with col2:
+        st.metric("Total Stok", f"{total_item} unit")
+    with col3:
+        st.metric("Nilai Inventaris", f"Rp {total_nilai_inventaris:,.0f}")
+    
+    # Peringatan stok rendah
+    stok_rendah = dapatkan_laporan_stok_rendah()
+    if stok_rendah:
+        st.subheader("⚠️ Peringatan Stok Menipis")
+        st.write(f"Ada {len(stok_rendah)} produk dengan stok di bawah ambang batas (10 unit)")
+        st.dataframe(pd.DataFrame(stok_rendah))
+    
+    # Inventaris berdasarkan kategori
+    st.subheader("Inventaris per Kategori")
+    df_inventaris = pd.DataFrame(data_inventaris)
+    
+    if not df_inventaris.empty:
+        # Kelompokkan berdasarkan kategori
+        inventaris_kategori = df_inventaris.groupby('kategori').agg({
+            'stok': 'sum',
+            'nilai_inventaris': 'sum'
+        }).reset_index()
+        
+        # Buat grafik pie
+        buf = buat_grafik_pie(inventaris_kategori, 'nilai_inventaris', 'kategori', 'Nilai Inventaris per Kategori')
+        st.image(buf)
+        
+        # Tampilkan tabel
+        st.dataframe(inventaris_kategori)
+    
+    # Daftar lengkap inventaris
+    st.subheader("Daftar Lengkap Inventaris")
+    st.dataframe(df_inventaris)
+    
+    # Opsi ekspor
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(ekspor_ke_excel(data_inventaris, f"inventaris_lengkap_{datetime.now().strftime('%Y-%m-%d')}.xlsx"), unsafe_allow_html=True)
+    with col2:
+        st.markdown(ekspor_ke_csv(data_inventaris, f"inventaris_lengkap_{datetime.now().strftime('%Y-%m-%d')}.csv"), unsafe_allow_html=True)
 
 def tampilkan_performa_produk():
     """Tampilkan UI analisis performa produk"""
