@@ -3,67 +3,69 @@ import os
 import streamlit as st
 import pandas as pd
 
-# Ensure the data directory exists
+# Pastikan direktori data ada
 if not os.path.exists('data'):
     os.makedirs('data')
 
-def get_db_connection():
-    """Create a database connection to the SQLite database"""
+def dapatkan_koneksi_db():
+    """Membuat koneksi database ke SQLite"""
     conn = sqlite3.connect('data/maharani.db')
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_database():
-    """Initialize the database with required tables"""
-    conn = get_db_connection()
+def inisialisasi_database():
+    """Inisialisasi database dengan tabel yang diperlukan"""
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
-    # Create products table
+    # Buat tabel produk
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS products (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        price REAL NOT NULL,
-        stock INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE IF NOT EXISTS produk (
+        id_produk INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama TEXT NOT NULL,
+        kategori TEXT NOT NULL,
+        harga REAL NOT NULL,
+        stok INTEGER NOT NULL,
+        dibuat_pada TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        diperbarui_pada TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
     
-    # Create transactions table
+    # Buat tabel transaksi
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        invoice_number TEXT UNIQUE NOT NULL,
-        total_amount REAL NOT NULL,
-        payment_method TEXT NOT NULL,
-        cashier_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (cashier_id) REFERENCES users (id)
+    CREATE TABLE IF NOT EXISTS transaksi (
+        id_transaksi TEXT PRIMARY KEY,
+        tanggal_transaksi TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        nama_pelanggan TEXT,
+        total_belanja REAL NOT NULL,
+        metode_pembayaran TEXT NOT NULL,
+        jumlah_pembayaran REAL NOT NULL,
+        jumlah_kembalian REAL NOT NULL,
+        id_kasir INTEGER NOT NULL,
+        FOREIGN KEY (id_kasir) REFERENCES pengguna (id_pengguna)
     )
     ''')
     
-    # Create transaction_items table
+    # Buat tabel detail_transaksi
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS transaction_items (
+    CREATE TABLE IF NOT EXISTS detail_transaksi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        transaction_id INTEGER NOT NULL,
-        product_id INTEGER NOT NULL,
-        quantity INTEGER NOT NULL,
-        price_per_unit REAL NOT NULL,
+        id_transaksi TEXT NOT NULL,
+        id_produk INTEGER NOT NULL,
+        jumlah INTEGER NOT NULL,
+        harga REAL NOT NULL,
         subtotal REAL NOT NULL,
-        FOREIGN KEY (transaction_id) REFERENCES transactions (id),
-        FOREIGN KEY (product_id) REFERENCES products (id)
+        FOREIGN KEY (id_transaksi) REFERENCES transaksi (id_transaksi),
+        FOREIGN KEY (id_produk) REFERENCES produk (id_produk)
     )
     ''')
     
     conn.commit()
     conn.close()
 
-def execute_query(query, params=(), fetchall=False):
-    """Execute a database query"""
-    conn = get_db_connection()
+def eksekusi_query(query, params=(), fetchall=False):
+    """Eksekusi kueri database"""
+    conn = dapatkan_koneksi_db()
     cursor = conn.cursor()
     
     cursor.execute(query, params)
@@ -80,30 +82,30 @@ def execute_query(query, params=(), fetchall=False):
     conn.close()
     return result
 
-def get_dataframe_from_query(query, params=()):
-    """Execute a query and return the results as a pandas DataFrame"""
-    conn = get_db_connection()
+def dapatkan_dataframe_dari_query(query, params=()):
+    """Eksekusi kueri dan mengembalikan hasil sebagai pandas DataFrame"""
+    conn = dapatkan_koneksi_db()
     return pd.read_sql_query(query, conn, params=params)
 
-def backup_database():
-    """Backup the database to a CSV file"""
-    conn = get_db_connection()
+def cadangkan_database():
+    """Cadangkan database ke file CSV"""
+    conn = dapatkan_koneksi_db()
     
-    # Backup products
-    products_df = pd.read_sql_query("SELECT * FROM products", conn)
-    products_df.to_csv("data/backup_products.csv", index=False)
+    # Cadangkan produk
+    produk_df = pd.read_sql_query("SELECT * FROM produk", conn)
+    produk_df.to_csv("data/cadangan_produk.csv", index=False)
     
-    # Backup transactions
-    transactions_df = pd.read_sql_query("SELECT * FROM transactions", conn)
-    transactions_df.to_csv("data/backup_transactions.csv", index=False)
+    # Cadangkan transaksi
+    transaksi_df = pd.read_sql_query("SELECT * FROM transaksi", conn)
+    transaksi_df.to_csv("data/cadangan_transaksi.csv", index=False)
     
-    # Backup transaction items
-    transaction_items_df = pd.read_sql_query("SELECT * FROM transaction_items", conn)
-    transaction_items_df.to_csv("data/backup_transaction_items.csv", index=False)
+    # Cadangkan detail transaksi
+    detail_transaksi_df = pd.read_sql_query("SELECT * FROM detail_transaksi", conn)
+    detail_transaksi_df.to_csv("data/cadangan_detail_transaksi.csv", index=False)
     
-    # Backup users
-    users_df = pd.read_sql_query("SELECT id, username, role, created_at FROM users", conn)
-    users_df.to_csv("data/backup_users.csv", index=False)
+    # Cadangkan pengguna
+    pengguna_df = pd.read_sql_query("SELECT id_pengguna, nama_pengguna, peran, dibuat_pada FROM pengguna", conn)
+    pengguna_df.to_csv("data/cadangan_pengguna.csv", index=False)
     
     conn.close()
     return True
