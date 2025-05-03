@@ -1,6 +1,14 @@
 import streamlit as st
 import pandas as pd
 import os
+import sys
+
+# Verificando e adicionando o diretório atual ao sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+# Importando módulos após configurar o path
 from modules.auth import inisialisasi_autentikasi, formulir_login, manajemen_pengguna, keluar
 from modules.database import inisialisasi_database
 from modules.products import manajemen_produk, dapatkan_produk_stok_rendah
