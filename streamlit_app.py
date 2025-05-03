@@ -3,10 +3,10 @@ import pandas as pd
 import os
 
 # Mengimpor fungsi-fungsi yang diperlukan dari modul
-from modules.auth import init_auth, login_form, user_management, logout
+from modules.auth import login_form, logout
 from modules.database import init_database
-from modules.products import product_management, get_low_stock_products
-from modules.transactions import pos_interface, transaction_history, show_receipt
+from modules.products import product_management
+from modules.transactions import pos_interface, transaction_history
 from modules.reports import reports_dashboard
 
 # Konfigurasi Halaman
@@ -21,7 +21,7 @@ st.set_page_config(
 init_database()
 init_auth()  # Fungsi ini menginisialisasi otentikasi, termasuk membuat tabel pengguna jika perlu
 
-# Cek otentikasi
+# Cek apakah pengguna sudah login
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
@@ -39,21 +39,15 @@ else:
         ["Point of Sale", "Produk", "Transaksi", "Laporan", "Manajemen Pengguna"]
     )
     
-    # Konten berdasarkan halaman yang dipilih
+     # Konten berdasarkan halaman yang dipilih
     if halaman == "Point of Sale":
-        if st.session_state.get("show_receipt"):
-            show_receipt(st.session_state.show_receipt)
-        else:
-            pos_interface()
+        pos_interface()
     
     elif halaman == "Produk":
         product_management()
     
     elif halaman == "Transaksi":
-        if st.session_state.get("show_receipt"):
-            show_receipt(st.session_state.show_receipt)
-        else:
-            transaction_history()
+        transaction_history()
     
     elif halaman == "Laporan":
         reports_dashboard()
@@ -65,7 +59,8 @@ else:
             st.warning("Anda tidak memiliki izin untuk mengakses Manajemen Pengguna")
     
     # Tombol logout
-    logout()  # Tombol logout untuk keluar dari aplikasi
+    if st.sidebar.button("Logout"):
+        logout()
 
     # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
     if st.session_state.user.get("role") == "admin":
