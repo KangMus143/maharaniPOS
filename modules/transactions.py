@@ -90,8 +90,12 @@ def transaction_history():
                 st.info(f"Tidak ada detail transaksi untuk {transaction_id}")
 
 def pos_interface():
-    """Antarmuka untuk Point of Sale (POS)"""
+    """Antarmuka untuk Point of Sale"""
     st.title("Point of Sale")
+
+    # Pastikan 'keranjang' ada di session state
+    if 'keranjang' not in st.session_state:
+        st.session_state.keranjang = []
 
     # Form untuk memilih produk
     produk_id = st.number_input("ID Produk", min_value=1, step=1)
