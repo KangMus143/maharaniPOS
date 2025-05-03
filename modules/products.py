@@ -5,7 +5,7 @@ Modul produk untuk aplikasi MaharaniPOS
 import streamlit as st
 import pandas as pd
 import sqlite3
-from modules.database import dapatkan_koneksi_db, eksekusi_query, dapatkan_dataframe_dari_query
+from database import dapatkan_koneksi_db, eksekusi_query, dapatkan_dataframe_dari_query
 
 def tambah_produk(nama, kategori, harga, stok):
     """Tambah produk baru ke database"""
@@ -221,32 +221,4 @@ def manajemen_produk():
             # Jika kategori ada, gunakan dropdown dengan opsi "Kategori Baru", jika tidak gunakan teks bebas
             kategori_list = dapatkan_kategori_produk()
             if kategori_list:
-                opsi_kategori = st.selectbox(
-                    "Kategori", 
-                    kategori_list + ["Kategori Baru"],
-                    index=len(kategori_list) if kategori_list else 0
-                )
-                
-                if opsi_kategori == "Kategori Baru":
-                    kategori = st.text_input("Nama Kategori Baru")
-                else:
-                    kategori = opsi_kategori
-            else:
-                kategori = st.text_input("Kategori")
-                
-            harga = st.number_input("Harga (Rp)", min_value=0.0, value=0.0, step=1000.0)
-            stok = st.number_input("Stok Awal", min_value=0, value=0)
-            
-            submit = st.form_submit_button("Tambah Produk")
-            
-            if submit:
-                if not nama or not kategori:
-                    st.error("Silakan isi semua kolom yang diperlukan")
-                else:
-                    sukses, pesan = tambah_produk(nama, kategori, harga, stok)
-                    if sukses:
-                        st.success(pesan)
-                        # Bersihkan kolom formulir
-                        st.experimental_rerun()
-                    else:
-                        st.error(pesan)
+                opsi_kategori = st.select
