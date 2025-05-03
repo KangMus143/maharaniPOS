@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import os
+
+# Mengimpor fungsi-fungsi yang diperlukan dari modul
 from modules.auth import init_auth, login_form, user_management, logout
 from modules.database import init_database
 from modules.products import product_management, get_low_stock_products
@@ -39,7 +41,6 @@ else:
     
     # Konten berdasarkan halaman yang dipilih
     if halaman == "Point of Sale":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan POS interface
         if st.session_state.get("show_receipt"):
             show_receipt(st.session_state.show_receipt)
         else:
@@ -49,7 +50,6 @@ else:
         product_management()
     
     elif halaman == "Transaksi":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan riwayat transaksi
         if st.session_state.get("show_receipt"):
             show_receipt(st.session_state.show_receipt)
         else:
@@ -67,9 +67,7 @@ else:
     # Tombol logout
     logout()
 
-    # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
     if st.session_state.user.get("role") == "admin":
-        # Ambil produk dengan stok rendah
         low_stock_df = get_low_stock_products(threshold=10)
         
         if not low_stock_df.empty:
