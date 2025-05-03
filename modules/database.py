@@ -3,6 +3,12 @@ import os
 import streamlit as st
 import pandas as pd
 
+def get_db_connection():
+    """Mendapatkan koneksi ke database SQLite"""
+    conn = sqlite3.connect('maharanipos.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
 # Pastikan direktori data ada
 if not os.path.exists('data'):
     os.makedirs('data')
