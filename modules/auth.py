@@ -115,7 +115,7 @@ def user_management():
             if username != "admin" and st.button("Hapus", key=f"delete_{user_id}"):
                 hapus_pengguna(user_id)
                 st.success(f"Pengguna {username} dihapus")
-                st.experimental_rerun()
+                st.rerun()
         
         st.divider()
 
@@ -147,7 +147,7 @@ def logout():
         del st.session_state["authenticated"]
         del st.session_state["user"]
     st.success("Anda telah logout.")
-    st.experimental_rerun()
+    st.rerun()
 
 def init_auth():
     """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
