@@ -1,7 +1,7 @@
 import streamlit as st
 import hashlib
 import sqlite3
-from .database import dapatkan_koneksi_db
+from modules.database import dapatkan_koneksi_db
 
 def buat_hash(kata_sandi):
     """Membuat hash SHA256 dari kata sandi"""
