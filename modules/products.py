@@ -1,3 +1,7 @@
+"""
+Products module for the MaharaniPOS application
+"""
+
 import streamlit as st
 import pandas as pd
 import sqlite3
@@ -57,6 +61,25 @@ def get_product(product_id):
     result = execute_query(query, (product_id,), fetchall=False)
     return result
 
+# Add these functions that are being imported from transactions.py
+def get_product_by_id(product_id):
+    """Get a single product by ID (alias for get_product for compatibility)"""
+    return get_product(product_id)
+
+def update_product_stock(product_id, quantity_change):
+    """Update product stock (add or subtract)"""
+    query = '''
+    UPDATE products
+    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    '''
+    
+    try:
+        execute_query(query, (quantity_change, product_id))
+        return True, "Stock updated successfully"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
 def get_products(search_term="", category=""):
     """Get all products with optional filtering"""
     query = "SELECT * FROM products"
@@ -90,17 +113,12 @@ def get_product_categories():
 
 def update_stock(product_id, quantity_change):
     """Update product stock (add or subtract)"""
-    query = '''
-    UPDATE products
-    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    '''
-    
-    try:
-        execute_query(query, (quantity_change, product_id))
-        return True, "Stock updated successfully"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
+    return update_product_stock(product_id, quantity_change)
+
+def get_low_stock_products(threshold=10):
+    """Get products with stock below the threshold"""
+    query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
+    return get_dataframe_from_query(query, (threshold,))
 
 def product_management():
     """Product management interface"""
@@ -233,8 +251,3 @@ def product_management():
                         st.experimental_rerun()
                     else:
                         st.error(message)
-
-def get_low_stock_products(threshold=10):
-    """Get products with stock below the threshold"""
-    query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
-    return get_dataframe_from_query(query, (threshold,))
