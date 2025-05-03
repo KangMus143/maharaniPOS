@@ -65,7 +65,7 @@ else:
             st.warning("Anda tidak memiliki izin untuk mengakses Manajemen Pengguna")
     
     # Tombol logout
-    logout()
+    logout()  # Tombol logout untuk keluar dari aplikasi
 
     # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
     if st.session_state.user.get("role") == "admin":
