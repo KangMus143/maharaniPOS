@@ -43,7 +43,7 @@ def login_form():
                 st.session_state.user = user
                 st.session_state.authenticated = True
                 st.success(f"Selamat datang, {username}!")
-                st.experimental_rerun()  # Halaman di-refresh
+                st.rerun()  # Halaman di-refresh
                 return True
             else:
                 st.error("Username atau password salah")
