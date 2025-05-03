@@ -5,6 +5,51 @@ import uuid
 from modules.database import get_db_connection
 from modules.products import ambil_produk_berdasarkan_id, perbarui_stok_produk
 
+def pos_interface():
+    """Antarmuka untuk Point of Sale (POS)"""
+    st.title("Point of Sale")
+
+    # Form untuk memilih produk
+    produk_id = st.number_input("ID Produk", min_value=1, step=1)
+    jumlah = st.number_input("Jumlah", min_value=1, step=1)
+
+    # Tombol untuk menambah produk ke keranjang
+    if st.button("Tambahkan ke Keranjang"):
+        produk = ambil_produk_berdasarkan_id(produk_id)
+
+        if produk:
+            if produk["stock"] >= jumlah:
+                subtotal = produk["price"] * jumlah
+                st.session_state.keranjang.append({
+                    "id": produk["id"],
+                    "name": produk["name"],
+                    "quantity": jumlah,
+                    "price": produk["price"],
+                    "subtotal": subtotal
+                })
+                st.success(f"{produk['name']} berhasil ditambahkan ke keranjang.")
+            else:
+                st.warning("Stok tidak cukup.")
+        else:
+            st.error("Produk tidak ditemukan.")
+    
+    # Menampilkan keranjang belanja
+    if "keranjang" in st.session_state and st.session_state.keranjang:
+        st.subheader("Keranjang Belanja")
+        for item in st.session_state.keranjang:
+            st.write(f"**{item['name']}** x {item['quantity']} - Rp {item['subtotal']:,.0f}")
+        
+        total = sum(item['subtotal'] for item in st.session_state.keranjang)
+        st.write(f"**Total: Rp {total:,.0f}**")
+
+        # Tombol untuk memproses transaksi
+        if st.button("Proses Transaksi"):
+            if total > 0:
+                st.session_state.keranjang = []
+                st.success("Transaksi berhasil diproses.")
+            else:
+                st.warning("Keranjang belanja kosong.")
+
 def hasilkan_id_transaksi():
     """Menghasilkan ID transaksi unik dengan awalan timestamp"""
     timestamp = datetime.now().strftime("%Y%m%d")
