@@ -1,82 +1,82 @@
 import streamlit as st
 import hashlib
 import sqlite3
-from database import dapatkan_koneksi_db
+from .database import get_db_connection
 
-def buat_hash(kata_sandi):
-    """Membuat hash SHA256 dari kata sandi"""
-    return hashlib.sha256(str.encode(kata_sandi)).hexdigest()
+def buat_hash(password):
+    """Buat hash SHA256 dari password"""
+    return hashlib.sha256(str.encode(password)).hexdigest()
 
 def buat_tabel_pengguna():
     """Membuat tabel pengguna jika belum ada"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS pengguna (
-        id_pengguna INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama_pengguna TEXT UNIQUE NOT NULL,
-        kata_sandi TEXT NOT NULL,
-        peran TEXT NOT NULL,
-        dibuat_pada TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
     conn.commit()
     conn.close()
 
 def buat_pengguna_default():
-    """Membuat pengguna admin default jika tidak ada pengguna"""
-    conn = dapatkan_koneksi_db()
+    """Membuat pengguna default admin jika tidak ada pengguna"""
+    conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM pengguna")
-    jumlah = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
     
-    if jumlah == 0:
-        nama_pengguna_default = "admin"
-        kata_sandi_default = "admin123"
-        hash_kata_sandi = buat_hash(kata_sandi_default)
+    if count == 0:
+        default_username = "admin"
+        default_password = "admin123"
+        hashed_password = buat_hash(default_password)
         
         cursor.execute(
-            "INSERT INTO pengguna (nama_pengguna, kata_sandi, peran) VALUES (?, ?, ?)",
-            (nama_pengguna_default, hash_kata_sandi, "admin")
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (default_username, hashed_password, "admin")
         )
         conn.commit()
     
     conn.close()
 
-def masuk(nama_pengguna, kata_sandi):
-    """Memverifikasi kredensial login"""
-    conn = dapatkan_koneksi_db()
+def login(username, password):
+    """Verifikasi kredensial login"""
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    hash_kata_sandi = buat_hash(kata_sandi)
+    hashed_password = buat_hash(password)
     cursor.execute(
-        "SELECT id_pengguna, nama_pengguna, peran FROM pengguna WHERE nama_pengguna = ? AND kata_sandi = ?",
-        (nama_pengguna, hash_kata_sandi)
+        "SELECT id, username, role FROM users WHERE username = ? AND password = ?",
+        (username, hashed_password)
     )
-    pengguna = cursor.fetchone()
+    user = cursor.fetchone()
     conn.close()
     
-    if pengguna:
-        return {"id": pengguna[0], "nama_pengguna": pengguna[1], "peran": pengguna[2]}
+    if user:
+        return {"id": user[0], "username": user[1], "role": user[2]}
     return None
 
-def tambah_pengguna(nama_pengguna, kata_sandi, peran):
+def tambah_pengguna(username, password, role):
     """Menambahkan pengguna baru ke database"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        hash_kata_sandi = buat_hash(kata_sandi)
+        hashed_password = buat_hash(password)
         cursor.execute(
-            "INSERT INTO pengguna (nama_pengguna, kata_sandi, peran) VALUES (?, ?, ?)",
-            (nama_pengguna, hash_kata_sandi, peran)
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username, hashed_password, role)
         )
         conn.commit()
         sukses = True
-        pesan = f"Pengguna {nama_pengguna} berhasil ditambahkan"
+        pesan = f"Pengguna {username} berhasil ditambahkan"
     except sqlite3.IntegrityError:
         sukses = False
-        pesan = f"Nama pengguna {nama_pengguna} sudah ada"
+        pesan = f"Username {username} sudah ada"
     except Exception as e:
         sukses = False
         pesan = f"Error: {str(e)}"
@@ -84,92 +84,92 @@ def tambah_pengguna(nama_pengguna, kata_sandi, peran):
     conn.close()
     return sukses, pesan
 
-def dapatkan_pengguna():
-    """Mendapatkan semua pengguna dari database"""
-    conn = dapatkan_koneksi_db()
+def ambil_pengguna():
+    """Mengambil semua pengguna dari database"""
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id_pengguna, nama_pengguna, peran, dibuat_pada FROM pengguna")
-    pengguna = cursor.fetchall()
+    cursor.execute("SELECT id, username, role, created_at FROM users")
+    users = cursor.fetchall()
     conn.close()
     
-    return pengguna
+    return users
 
-def hapus_pengguna(id_pengguna):
+def hapus_pengguna(user_id):
     """Menghapus pengguna dari database"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute("DELETE FROM pengguna WHERE id_pengguna = ?", (id_pengguna,))
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
 
-def ubah_kata_sandi(id_pengguna, kata_sandi_baru):
-    """Mengubah kata sandi pengguna"""
-    conn = dapatkan_koneksi_db()
+def ganti_password(user_id, new_password):
+    """Mengganti password pengguna"""
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    hash_kata_sandi = buat_hash(kata_sandi_baru)
+    hashed_password = buat_hash(new_password)
     cursor.execute(
-        "UPDATE pengguna SET kata_sandi = ? WHERE id_pengguna = ?",
-        (hash_kata_sandi, id_pengguna)
+        "UPDATE users SET password = ? WHERE id = ?",
+        (hashed_password, user_id)
     )
     conn.commit()
     conn.close()
 
-def inisialisasi_autentikasi():
-    """Inisialisasi autentikasi"""
+def init_auth():
+    """Inisialisasi otentikasi"""
     buat_tabel_pengguna()
     buat_pengguna_default()
 
-def formulir_login():
-    """Menampilkan formulir login"""
+def form_login():
+    """Menampilkan form login"""
     st.title("POS Maharani - Login")
     
-    with st.form("formulir_login"):
-        nama_pengguna = st.text_input("Nama Pengguna")
-        kata_sandi = st.text_input("Kata Sandi", type="password")
-        tombol = st.form_submit_button("Masuk")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
         
-        if tombol:
-            if not nama_pengguna or not kata_sandi:
-                st.error("Silakan masukkan nama pengguna dan kata sandi")
+        if submit:
+            if not username or not password:
+                st.error("Harap masukkan username dan password")
                 return False
                 
-            pengguna = masuk(nama_pengguna, kata_sandi)
-            if pengguna:
-                st.session_state.pengguna = pengguna
-                st.session_state.terotentikasi = True
-                st.success(f"Selamat datang, {nama_pengguna}!")
+            user = login(username, password)
+            if user:
+                st.session_state.user = user
+                st.session_state.authenticated = True
+                st.success(f"Selamat datang, {username}!")
                 st.experimental_rerun()
                 return True
             else:
-                st.error("Nama pengguna atau kata sandi tidak valid")
+                st.error("Username atau password salah")
                 return False
     
     return False
 
 def manajemen_pengguna():
     """Antarmuka manajemen pengguna"""
-    if not st.session_state.get("terotentikasi", False) or st.session_state.pengguna["peran"] != "admin":
-        st.warning("Akses tidak diizinkan")
+    if not st.session_state.get("authenticated", False) or st.session_state.user["role"] != "admin":
+        st.warning("Akses tidak sah")
         return
     
     st.subheader("Manajemen Pengguna")
     
-    # Tambah pengguna baru
+    # Tambahkan pengguna baru
     with st.expander("Tambah Pengguna Baru"):
-        with st.form("formulir_tambah_pengguna"):
-            nama_pengguna_baru = st.text_input("Nama Pengguna")
-            kata_sandi_baru = st.text_input("Kata Sandi", type="password")
-            peran_baru = st.selectbox("Peran", ["admin", "kasir"])
+        with st.form("add_user_form"):
+            new_username = st.text_input("Username")
+            new_password = st.text_input("Password", type="password")
+            new_role = st.selectbox("Role", ["admin", "cashier"])
             
-            terkirim = st.form_submit_button("Tambah Pengguna")
-            if terkirim:
-                if not nama_pengguna_baru or not kata_sandi_baru:
-                    st.error("Harap isi semua kolom")
+            submitted = st.form_submit_button("Tambah Pengguna")
+            if submitted:
+                if not new_username or not new_password:
+                    st.error("Harap lengkapi semua kolom")
                 else:
-                    sukses, pesan = tambah_pengguna(nama_pengguna_baru, kata_sandi_baru, peran_baru)
+                    sukses, pesan = tambah_pengguna(new_username, new_password, new_role)
                     if sukses:
                         st.success(pesan)
                     else:
@@ -177,32 +177,32 @@ def manajemen_pengguna():
     
     # Daftar pengguna
     st.subheader("Daftar Pengguna")
-    pengguna_list = dapatkan_pengguna()
+    users = ambil_pengguna()
     
-    for pengguna in pengguna_list:
-        id_pengguna, nama_pengguna, peran, dibuat_pada = pengguna
+    for user in users:
+        user_id, username, role, created_at = user
         col1, col2, col3 = st.columns([3, 1, 1])
         
         with col1:
-            st.write(f"**{nama_pengguna}** ({peran})")
+            st.write(f"**{username}** ({role})")
         
         with col2:
-            if st.button("Reset Kata Sandi", key=f"reset_{id_pengguna}"):
-                kata_sandi_baru = "password123"
-                ubah_kata_sandi(id_pengguna, kata_sandi_baru)
-                st.info(f"Kata sandi direset menjadi: {kata_sandi_baru}")
+            if st.button("Reset Password", key=f"reset_{user_id}"):
+                new_pass = "password123"
+                ganti_password(user_id, new_pass)
+                st.info(f"Password reset menjadi: {new_pass}")
         
         with col3:
-            if nama_pengguna != "admin" and st.button("Hapus", key=f"hapus_{id_pengguna}"):
-                hapus_pengguna(id_pengguna)
-                st.success(f"Pengguna {nama_pengguna} dihapus")
+            if username != "admin" and st.button("Hapus", key=f"delete_{user_id}"):
+                hapus_pengguna(user_id)
+                st.success(f"Pengguna {username} dihapus")
                 st.experimental_rerun()
         
         st.divider()
 
-def keluar():
-    """Keluar pengguna saat ini"""
-    if st.sidebar.button("Keluar"):
-        st.session_state.terotentikasi = False
-        st.session_state.pengguna = None
+def logout():
+    """Logout pengguna saat ini"""
+    if st.sidebar.button("Logout"):
+        st.session_state.authenticated = False
+        st.session_state.user = None
         st.experimental_rerun()
