@@ -36,7 +36,7 @@ def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_penjualan_produk(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan produk antara dua tanggal"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()  # Ganti dengan get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -66,7 +66,7 @@ def dapatkan_laporan_penjualan_produk(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_penjualan_kategori(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan kategori antara dua tanggal"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -94,7 +94,7 @@ def dapatkan_laporan_penjualan_kategori(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_metode_pembayaran(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan distribusi metode pembayaran"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -120,7 +120,7 @@ def dapatkan_laporan_metode_pembayaran(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_penjualan_harian(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan tren penjualan harian"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -146,7 +146,7 @@ def dapatkan_laporan_penjualan_harian(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_penjualan_perjam(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan distribusi penjualan per jam"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
@@ -204,7 +204,7 @@ def dapatkan_laporan_inventaris():
 
 def dapatkan_laporan_stok_rendah(ambang_batas=10):
     """Dapatkan laporan peringatan stok rendah"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
