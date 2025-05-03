@@ -5,6 +5,48 @@ import uuid
 from modules.database import get_db_connection
 from modules.products import ambil_produk_berdasarkan_id, perbarui_stok_produk
 
+def transaction_history():
+    """Menampilkan riwayat transaksi"""
+    st.title("Riwayat Transaksi")
+
+    # Ambil data transaksi dari database
+    query = '''
+    SELECT t.id, t.invoice_number, t.total_amount, t.payment_method, t.created_at, u.username AS cashier
+    FROM transactions t
+    JOIN users u ON t.cashier_id = u.id
+    ORDER BY t.created_at DESC
+    '''
+    
+    conn = get_db_connection()
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    if df.empty:
+        st.info("Belum ada transaksi yang dilakukan.")
+    else:
+        st.write(df)
+        
+        # Pilih transaksi untuk melihat detail
+        transaction_id = st.selectbox("Pilih Transaksi", df['invoice_number'])
+        
+        if transaction_id:
+            # Tampilkan detail transaksi berdasarkan ID
+            query_details = '''
+            SELECT ti.product_id, p.name, ti.quantity, ti.price_per_unit, ti.subtotal
+            FROM transaction_items ti
+            JOIN products p ON ti.product_id = p.id
+            WHERE ti.transaction_id = ?
+            '''
+            conn = get_db_connection()
+            transaction_items = pd.read_sql_query(query_details, conn, params=(transaction_id,))
+            conn.close()
+            
+            if not transaction_items.empty:
+                st.subheader(f"Detail Transaksi {transaction_id}")
+                st.write(transaction_items)
+            else:
+                st.info(f"Tidak ada detail transaksi untuk {transaction_id}")
+
 def pos_interface():
     """Antarmuka untuk Point of Sale (POS)"""
     st.title("Point of Sale")
