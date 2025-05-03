@@ -1,54 +1,80 @@
 import streamlit as st
-from modules import database, auth, products, transactions, reports
+import pandas as pd
+import os
+from modules.auth import init_auth, login_form, user_management, logout
+from modules.database import init_database
+from modules.products import product_management, get_low_stock_products
+from modules.transactions import pos_interface, transaction_history, show_receipt
+from modules.reports import reports_dashboard
 
-st.set_page_config(page_title="POS Maharani", layout="wide")
+# Page configuration
+st.set_page_config(
+    page_title="POS Maharani",
+    page_icon="🛒",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Inisialisasi DB
-database.init_db()
-auth.init_users()
+# Initialize database and authentication
+init_database()
+init_auth()
 
-# Session State
-if "user" not in st.session_state:
-    st.session_state.user = None
+# Check authentication
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# Login
-if not st.session_state.user:
-    st.title("🔐 Login POS Maharani")
-
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
-
-        if submit:
-            user = auth.login_streamlit(username, password)
-            if user:
-                st.session_state.user = user
-                st.success(f"Login berhasil sebagai {user['username']} ({user['role']})")
-            else:
-                st.error("Username atau password salah.")
-
+# App layout
+if not st.session_state.authenticated:
+    login_form()
 else:
-    # Menu
-    st.sidebar.title("📋 Menu")
-    menu = st.sidebar.radio("Pilih halaman:", ["Produk", "Transaksi", "Laporan", "Export Excel", "Logout"])
+    # Sidebar - navigation
+    st.sidebar.title("POS Maharani")
+    st.sidebar.image("https://img.freepik.com/free-vector/gradient-pos-logo-template_23-2149284672.jpg", width=200)
+    
+    # Navigation
+    page = st.sidebar.radio(
+        "Navigation",
+        ["Point of Sale", "Products", "Transactions", "Reports", "User Management"]
+    )
+    
+    # Content based on selected page
+    if page == "Point of Sale":
+        # Show receipt if there's a transaction ID in session state, else the POS interface
+        if st.session_state.get("show_receipt"):
+            show_receipt(st.session_state.show_receipt)
+        else:
+            pos_interface()
+    
+    elif page == "Products":
+        product_management()
+    
+    elif page == "Transactions":
+        # Show receipt if there's a transaction ID in session state, else the transaction history
+        if st.session_state.get("show_receipt"):
+            show_receipt(st.session_state.show_receipt)
+        else:
+            transaction_history()
+    
+    elif page == "Reports":
+        reports_dashboard()
+    
+    elif page == "User Management":
+        if st.session_state.user.get("role") == "admin":
+            user_management()
+        else:
+            st.warning("You don't have permission to access User Management")
+    
+    # Logout button
+    logout()
 
-    st.sidebar.write(f"👤 {st.session_state.user['username']} ({st.session_state.user['role']})")
-
-    if menu == "Produk":
-        products.streamlit_view(st.session_state.user)
-
-    elif menu == "Transaksi":
-        transactions.streamlit_transaksi()
-
-    elif menu == "Laporan":
-        reports.streamlit_laporan()
-
-    elif menu == "Export Excel":
-        reports.export_to_excel()
-        st.success("Laporan berhasil diekspor ke 'laporan_penjualan.xlsx'")
-
-    elif menu == "Logout":
-        st.session_state.user = None
-        st.experimental_rerun()
-
+    # Optional - Show low stock alert to admin users
+    if st.session_state.user.get("role") == "admin":
+        # Get low stock products
+        low_stock_df = get_low_stock_products(threshold=10)
+        
+        if not low_stock_df.empty:
+            with st.sidebar.expander("⚠️ Low Stock Alert"):
+                st.warning(f"{len(low_stock_df)} products are low on stock!")
+                
+                for index, product in low_stock_df.iterrows():
+                    st.write(f"**{product['name']}**: {product['stock']} left")
