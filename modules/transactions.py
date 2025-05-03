@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import uuid
-from .database import dapatkan_koneksi_db
-from .products import dapatkan_produk_berdasarkan_id, perbarui_stok_produk
+from modules.database import dapatkan_koneksi_db
+from modules.products import dapatkan_produk_berdasarkan_id, perbarui_stok_produk
 
 def hasilkan_id_transaksi():
     """Menghasilkan ID transaksi unik dengan awalan timestamp"""
