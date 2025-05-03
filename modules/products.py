@@ -6,6 +6,27 @@ def get_low_stock_products(threshold=10):
     """Mengambil produk dengan stok di bawah threshold"""
     query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
     return get_dataframe_from_query(query, (threshold,))
+
+def ambil_produk_berdasarkan_id(id_produk):
+    """Mengambil produk berdasarkan ID"""
+    query = "SELECT * FROM products WHERE id = ?"
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute(query, (id_produk,))
+    product = cursor.fetchone()
+    
+    conn.close()
+    
+    if product:
+        return {
+            "id": product[0],
+            "name": product[1],
+            "category": product[2],
+            "price": product[3],
+            "stock": product[4]
+        }
+    return None
     
 def tambah_produk(nama, kategori, harga, stok):
     """Menambahkan produk baru ke database"""
