@@ -2,6 +2,19 @@ import streamlit as st
 import pandas as pd
 from .database import get_db_connection, execute_query, get_dataframe_from_query
 
+def get_product_categories():
+    """Mengambil semua kategori produk yang ada di database"""
+    query = "SELECT DISTINCT category FROM products ORDER BY category"
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute(query)
+    categories = cursor.fetchall()
+    conn.close()
+
+    # Mengembalikan daftar kategori
+    return [category[0] for category in categories]
+
 def get_low_stock_products(threshold=10):
     """Mengambil produk dengan stok di bawah threshold"""
     query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
