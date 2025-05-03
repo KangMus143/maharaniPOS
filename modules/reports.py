@@ -177,7 +177,7 @@ def dapatkan_laporan_penjualan_perjam(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_inventaris():
     """Dapatkan laporan status inventaris terkini"""
-    conn = dapatkan_koneksi_db()
+    conn = get_db_connection()  # Ganti dengan get_db_connection()
     cursor = conn.cursor()
     
     try:
