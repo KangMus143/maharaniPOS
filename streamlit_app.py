@@ -1,15 +1,13 @@
 import streamlit as st
 import pandas as pd
 import os
+from modules.auth import init_auth, login_form, user_management, logout
+from modules.database import init_database
+from modules.products import product_management, get_low_stock_products
+from modules.transactions import pos_interface, transaction_history, show_receipt
+from modules.reports import reports_dashboard
 
-# Importações diretas dos arquivos
-from auth import inisialisasi_autentikasi, formulir_login, manajemen_pengguna, keluar
-from database import inisialisasi_database
-from products import manajemen_produk, dapatkan_produk_stok_rendah
-from transactions import pos_interface, transaction_history, show_receipt
-from reports import reports_dashboard
-
-# Konfigurasi halaman
+# Konfigurasi Halaman
 st.set_page_config(
     page_title="POS Maharani",
     page_icon="🛒",
@@ -17,17 +15,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inisialisasi database dan autentikasi
-inisialisasi_database()
-inisialisasi_autentikasi()
+# Inisialisasi database dan otentikasi
+init_database()
+init_auth()
 
-# Periksa autentikasi
-if "terotentikasi" not in st.session_state:
-    st.session_state.terotentikasi = False
+# Cek otentikasi
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
 
-# Tata letak aplikasi
-if not st.session_state.terotentikasi:
-    formulir_login()
+# Layout aplikasi
+if not st.session_state.authenticated:
+    login_form()
 else:
     # Sidebar - navigasi
     st.sidebar.title("POS Maharani")
@@ -36,24 +34,24 @@ else:
     # Navigasi
     halaman = st.sidebar.radio(
         "Navigasi",
-        ["Kasir", "Produk", "Transaksi", "Laporan", "Manajemen Pengguna"]
+        ["Point of Sale", "Produk", "Transaksi", "Laporan", "Manajemen Pengguna"]
     )
     
     # Konten berdasarkan halaman yang dipilih
-    if halaman == "Kasir":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak tampilkan antarmuka POS
-        if st.session_state.get("tampilkan_struk"):
-            show_receipt(st.session_state.tampilkan_struk)
+    if halaman == "Point of Sale":
+        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan POS interface
+        if st.session_state.get("show_receipt"):
+            show_receipt(st.session_state.show_receipt)
         else:
             pos_interface()
     
     elif halaman == "Produk":
-        manajemen_produk()
+        product_management()
     
     elif halaman == "Transaksi":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak tampilkan riwayat transaksi
-        if st.session_state.get("tampilkan_struk"):
-            show_receipt(st.session_state.tampilkan_struk)
+        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan riwayat transaksi
+        if st.session_state.get("show_receipt"):
+            show_receipt(st.session_state.show_receipt)
         else:
             transaction_history()
     
@@ -61,22 +59,22 @@ else:
         reports_dashboard()
     
     elif halaman == "Manajemen Pengguna":
-        if st.session_state.pengguna.get("peran") == "admin":
-            manajemen_pengguna()
+        if st.session_state.user.get("role") == "admin":
+            user_management()
         else:
             st.warning("Anda tidak memiliki izin untuk mengakses Manajemen Pengguna")
     
-    # Tombol keluar
-    keluar()
+    # Tombol logout
+    logout()
 
-    # Opsional - Tampilkan peringatan stok rendah ke pengguna admin
-    if st.session_state.pengguna.get("peran") == "admin":
-        # Dapatkan produk stok rendah
-        stok_rendah_df = dapatkan_produk_stok_rendah(ambang_batas=10)
+    # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
+    if st.session_state.user.get("role") == "admin":
+        # Ambil produk dengan stok rendah
+        low_stock_df = get_low_stock_products(threshold=10)
         
-        if not stok_rendah_df.empty:
-            with st.sidebar.expander("⚠️ Peringatan Stok Rendah"):
-                st.warning(f"{len(stok_rendah_df)} produk memiliki stok rendah!")
+        if not low_stock_df.empty:
+            with st.sidebar.expander("⚠️ Peringatan Stok Menipis"):
+                st.warning(f"{len(low_stock_df)} produk dengan stok rendah!")
                 
-                for index, produk in stok_rendah_df.iterrows():
-                    st.write(f"**{produk['nama']}**: {produk['stok']} tersisa")
+                for index, product in low_stock_df.iterrows():
+                    st.write(f"**{product['name']}**: {product['stock']} tersisa")
