@@ -19,7 +19,7 @@ st.set_page_config(
 
 # Inisialisasi database dan otentikasi
 init_database()
-init_auth()
+init_auth()  # Fungsi ini menginisialisasi otentikasi, termasuk membuat tabel pengguna jika perlu
 
 # Cek otentikasi
 if "authenticated" not in st.session_state:
@@ -41,7 +41,6 @@ else:
     
     # Konten berdasarkan halaman yang dipilih
     if halaman == "Point of Sale":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan POS interface
         if st.session_state.get("show_receipt"):
             show_receipt(st.session_state.show_receipt)
         else:
@@ -51,7 +50,6 @@ else:
         product_management()
     
     elif halaman == "Transaksi":
-        # Tampilkan struk jika ada ID transaksi di session state, jika tidak, tampilkan riwayat transaksi
         if st.session_state.get("show_receipt"):
             show_receipt(st.session_state.show_receipt)
         else:
@@ -66,12 +64,9 @@ else:
         else:
             st.warning("Anda tidak memiliki izin untuk mengakses Manajemen Pengguna")
     
-    # Tombol logout
-    logout()
+    logout()  # Tombol logout
 
-    # Opsional - Tampilkan peringatan stok rendah untuk pengguna admin
     if st.session_state.user.get("role") == "admin":
-        # Ambil produk dengan stok rendah
         low_stock_df = get_low_stock_products(threshold=10)
         
         if not low_stock_df.empty:
