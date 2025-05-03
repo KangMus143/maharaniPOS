@@ -5,7 +5,7 @@ import seaborn as sns
 import io
 import base64
 from datetime import datetime, timedelta
-from database import dapatkan_koneksi_db
+from modules.database import dapatkan_koneksi_db
 
 def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan antara dua tanggal"""
