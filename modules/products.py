@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 from .database import get_db_connection, execute_query, get_dataframe_from_query
 
+def get_low_stock_products(threshold=10):
+    """Mengambil produk dengan stok di bawah threshold"""
+    query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
+    return get_dataframe_from_query(query, (threshold,))
+    
 def tambah_produk(nama, kategori, harga, stok):
     """Menambahkan produk baru ke database"""
     query = '''
