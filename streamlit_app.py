@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 import os
-from odules.auth import init_auth, login_form, user_management, logout
-from odules.database import init_database
-from odules.products import product_management, get_low_stock_products
-from odules.transactions import pos_interface, transaction_history, show_receipt
-from odules.reports import reports_dashboard
+from modules.auth import init_auth, login_form, user_management, logout
+from modules.database import init_database
+from modules.products import product_management, get_low_stock_products
+from modules.transactions import pos_interface, transaction_history, show_receipt
+from modules.reports import reports_dashboard
 
 # Page configuration
 st.set_page_config(
