@@ -141,3 +141,11 @@ def hapus_pengguna(user_id):
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
+
+def logout():
+    """Mengeluarkan pengguna dan menghapus status otentikasi"""
+    if "authenticated" in st.session_state:
+        del st.session_state["authenticated"]
+        del st.session_state["user"]
+    st.success("Anda telah logout.")
+    st.experimental_rerun()
