@@ -7,6 +7,24 @@ def get_low_stock_products(threshold=10):
     query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
     return get_dataframe_from_query(query, (threshold,))
 
+def perbarui_stok_produk(id_produk, perubahan_stok):
+    """Memperbarui stok produk (tambah atau kurangi)"""
+    query = '''
+    UPDATE products
+    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+    '''
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (perubahan_stok, id_produk))
+        conn.commit()
+        conn.close()
+        return True, "Stok produk berhasil diperbarui"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
 def ambil_produk_berdasarkan_id(id_produk):
     """Mengambil produk berdasarkan ID"""
     query = "SELECT * FROM products WHERE id = ?"
