@@ -218,7 +218,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     
     id_transaksi = hasilkan_id_transaksi()
     total_belanja = dapatkan_total_keranjang()
-    
+
     if jumlah_pembayaran < total_belanja:
         st.error("Pembayaran kurang dari total belanja.")
         return False
@@ -229,7 +229,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     # Masukkan header transaksi
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     try:
         # Masukkan header transaksi
         cursor.execute("""
@@ -238,7 +238,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
             VALUES (?, ?, ?, ?, ?)
         """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
         
-        # Masukkan detail transaksi
+        # Masukkan detail transaksi dan update stok
         for item in st.session_state.keranjang:
             cursor.execute("""
                 INSERT INTO transaction_items
@@ -246,11 +246,17 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
                 VALUES (?, ?, ?, ?, ?)
             """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
             
-            # Perbarui stok
-            perbarui_stok_produk(item['id'], -item['quantity'])
+            # Perbarui stok produk setelah transaksi
+            berhasil, pesan = perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok berdasarkan jumlah produk
+
+            # Jika ada masalah dalam memperbarui stok, tampilkan pesan error
+            if not berhasil:
+                st.error(pesan)
+                conn.rollback()
+                return False
         
         conn.commit()  # Simpan semua perubahan
-        bersihkan_keranjang()
+        bersihkan_keranjang()  # Kosongkan keranjang setelah transaksi selesai
         return {
             'id_transaksi': id_transaksi,
             'total': total_belanja,
