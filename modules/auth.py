@@ -36,18 +36,16 @@ def login_form():
         if submit:
             if not username or not password:
                 st.error("Harap masukkan username dan password")
-                return False
-                
-            user = login(username, password)
-            if submit:
+            else:
+                user = login(username, password)
                 if user:
+                    # Set session variables
                     st.session_state.user = user
                     st.session_state.authenticated = True
                     st.success(f"Selamat datang, {username}!")
-                    st.rerun()  # Ganti dengan st.rerun()
+                    st.experimental_rerun()  # Refresh halaman setelah login berhasil
                 else:
-                    st.error("Username atau password salah")  
-            return False
+                    st.error("Username atau password salah")
 
 def init_auth():
     """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
@@ -147,7 +145,7 @@ def logout():
         del st.session_state["authenticated"]
         del st.session_state["user"]
     st.success("Anda telah logout.")
-    st.rerun()
+    st.experimental_rerun()  # Refresh halaman setelah logout
 
 def init_auth():
     """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
@@ -164,15 +162,16 @@ def init_auth():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
-
+    conn.commit()
+    
     # Membuat pengguna admin default jika tidak ada pengguna
     cursor.execute("SELECT COUNT(*) FROM users")
     count = cursor.fetchone()[0]
-    
     if count == 0:
+        
         # Membuat pengguna default (admin)
-        default_username = "admin"
-        default_password = "admin123"
+        default_username = "kangmus"
+        default_password = "zhal159753"
         hashed_password = buat_hash(default_password)
         
         cursor.execute(
@@ -180,6 +179,7 @@ def init_auth():
             (default_username, hashed_password, "admin")
         )
         conn.commit()
+    conn.close()
 
     # Jangan tutup koneksi di sini, biarkan tetap terbuka
     # conn.close()  # Hapus baris ini
