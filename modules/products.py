@@ -2,42 +2,6 @@ import streamlit as st
 import pandas as pd
 from .database import get_db_connection, execute_query, get_dataframe_from_query
 
-def perbarui_stok_produk(id_produk, perubahan_stok):
-    """Memperbarui stok produk (tambah atau kurangi)"""
-    query = '''
-    UPDATE products
-    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    '''
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(query, (perubahan_stok, id_produk))
-        conn.commit()
-        conn.close()
-        return True, "Stok produk berhasil diperbarui"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def perbarui_stok_produk(id_produk, perubahan_stok):
-    """Memperbarui stok produk (tambah atau kurangi)"""
-    query = '''
-    UPDATE products
-    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    '''
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(query, (perubahan_stok, id_produk))
-        conn.commit()
-        conn.close()
-        return True, "Stok produk berhasil diperbarui"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
 def get_product_categories():
     """Mengambil semua kategori produk yang ada di database"""
     query = "SELECT DISTINCT category FROM products ORDER BY category"
@@ -84,22 +48,56 @@ def get_low_stock_products(threshold=10):
     return get_dataframe_from_query(query, (threshold,))
 
 def perbarui_stok_produk(id_produk, perubahan_stok):
-    """Memperbarui stok produk (tambah atau kurangi)"""
+    """Memperbarui stok produk (tambah atau kurangi)
+    
+    Args:
+        id_produk (int): ID produk yang akan diperbarui stoknya
+        perubahan_stok (int): Jumlah untuk menambah (positif) atau mengurangi (negatif) stok
+        
+    Returns:
+        tuple: (sukses, pesan) - sukses adalah boolean, pesan adalah string
+    """
     query = '''
     UPDATE products
     SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
     '''
     
+    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        
+        # Periksa stok saat ini jika pengurangan stok
+        if perubahan_stok < 0:
+            check_query = "SELECT stock FROM products WHERE id = ?"
+            cursor.execute(check_query, (id_produk,))
+            result = cursor.fetchone()
+            
+            if not result:
+                return False, f"Produk dengan ID {id_produk} tidak ditemukan"
+                
+            stok_saat_ini = result[0]
+            if stok_saat_ini + perubahan_stok < 0:
+                return False, f"Stok tidak cukup. Tersedia: {stok_saat_ini}"
+        
+        # Lakukan update stok
         cursor.execute(query, (perubahan_stok, id_produk))
+        
+        if cursor.rowcount == 0:
+            return False, f"Produk dengan ID {id_produk} tidak ditemukan"
+            
         conn.commit()
-        conn.close()
         return True, "Stok produk berhasil diperbarui"
+    
     except Exception as e:
+        if conn:
+            conn.rollback()
         return False, f"Error: {str(e)}"
+    
+    finally:
+        if conn:
+            conn.close()
 
 def ambil_produk_berdasarkan_id(id_produk):
     """Mengambil produk berdasarkan ID"""
