@@ -5,6 +5,62 @@ import uuid
 from modules.database import get_db_connection
 from modules.products import ambil_produk_berdasarkan_id, perbarui_stok_produk
 
+def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
+    """Memproses transaksi dan menyimpan ke database"""
+    if 'keranjang' not in st.session_state or not st.session_state.keranjang:
+        st.error("Keranjang belanja kosong.")
+        return False
+    
+    id_transaksi = hasilkan_id_transaksi()
+    total_belanja = dapatkan_total_keranjang()
+    
+    if jumlah_pembayaran < total_belanja:
+        st.error("Pembayaran kurang dari total belanja.")
+        return False
+    
+    jumlah_kembalian = jumlah_pembayaran - total_belanja
+    tanggal_transaksi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Masukkan header transaksi
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Masukkan header transaksi
+        cursor.execute("""
+            INSERT INTO transaction_items
+            (transaction_id, product_id, quantity, price_per_unit, subtotal)
+            VALUES (?, ?, ?, ?, ?)
+        """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))  # Asumsikan cashier_id adalah 1
+        
+        # Masukkan detail transaksi dan update stok
+        for item in st.session_state.keranjang:
+            cursor.execute("""
+                INSERT INTO transaction_items
+                (transaction_id, product_id, quantity, price_per_unit, subtotal)
+                VALUES (?, ?, ?, ?, ?)
+            """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
+            
+            # Perbarui stok di products
+            perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok produk
+
+        conn.commit()  # Simpan semua perubahan
+        bersihkan_keranjang()
+        return {
+            'id_transaksi': id_transaksi,
+            'total': total_belanja,
+            'pembayaran': jumlah_pembayaran,
+            'kembalian': jumlah_kembalian,
+            'tanggal': tanggal_transaksi
+        }
+    
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error dalam transaksi: {str(e)}")
+        return False
+    finally:
+        conn.close()
+
 def show_receipt(transaction_id):
     """Menampilkan struk transaksi"""
     # Ambil data transaksi berdasarkan ID
