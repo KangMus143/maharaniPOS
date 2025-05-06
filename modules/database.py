@@ -13,12 +13,6 @@ def get_db_connection():
 if not os.path.exists('data'):
     os.makedirs('data')
 
-def get_db_connection():
-    """Membuat koneksi database ke SQLite"""
-    conn = sqlite3.connect('data/maharani.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def init_database():
     """Inisialisasi database dengan tabel yang diperlukan"""
     conn = get_db_connection()
