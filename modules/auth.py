@@ -47,40 +47,6 @@ def login_form():
                 else:
                     st.error("Username atau password salah")
 
-def init_auth():
-    """Inisialisasi otentikasi - Membuat tabel pengguna jika belum ada"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Membuat tabel pengguna jika belum ada
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-    ''')
-    conn.commit()
-    conn.close()
-
-    # Membuat pengguna admin default jika tidak ada pengguna
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
-    if count == 0:
-        # Membuat pengguna default (admin)
-        default_username = "admin"
-        default_password = "admin123"
-        hashed_password = buat_hash(default_password)
-        
-        cursor.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            (default_username, hashed_password, "admin")
-        )
-        conn.commit()
-    conn.close()
-
 def user_management():
     """Manajemen pengguna (menambahkan, menghapus, memperbarui pengguna)"""
     if not st.session_state.get("authenticated", False) or st.session_state.user["role"] != "admin":
