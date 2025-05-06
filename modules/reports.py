@@ -15,14 +15,17 @@ def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                t.id_transaksi,
-                t.tanggal_transaksi,
-                t.nama_pelanggan,
-                t.total_belanja,
-                t.metode_pembayaran
-            FROM transaksi t
-            WHERE t.tanggal_transaksi BETWEEN ? AND ?
-            ORDER BY t.tanggal_transaksi DESC
+                p.id,
+                p.name as product_name,
+                p.category,
+                SUM(ti.quantity) as total_quantity,
+                SUM(ti.subtotal) as total_sales
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.invoice_number
+            JOIN products p ON ti.product_id = p.id
+            WHERE t.created_at BETWEEN ? AND ?
+            GROUP BY p.id, p.name, p.category
+            ORDER BY total_sales DESC
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
         transaksi = cursor.fetchall()
