@@ -28,10 +28,10 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     try:
         # Masukkan header transaksi
         cursor.execute("""
-            INSERT INTO transaction_items
-            (transaction_id, product_id, quantity, price_per_unit, subtotal)
+            INSERT INTO transactions 
+            (invoice_number, total_amount, payment_method, cashier_id, created_at) 
             VALUES (?, ?, ?, ?, ?)
-        """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))  # Asumsikan cashier_id adalah 1
+        """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
         
         # Masukkan detail transaksi dan update stok
         for item in st.session_state.keranjang:
@@ -41,11 +41,17 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
                 VALUES (?, ?, ?, ?, ?)
             """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
             
-            # Perbarui stok di products
-            perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok produk
+            # Perbarui stok produk setelah transaksi
+            berhasil, pesan = perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok berdasarkan jumlah produk
 
+            # Jika ada masalah dalam memperbarui stok, tampilkan pesan error
+            if not berhasil:
+                st.error(pesan)
+                conn.rollback()
+                return False
+        
         conn.commit()  # Simpan semua perubahan
-        bersihkan_keranjang()
+        bersihkan_keranjang()  # Kosongkan keranjang setelah transaksi selesai
         return {
             'id_transaksi': id_transaksi,
             'total': total_belanja,
@@ -265,65 +271,3 @@ def dapatkan_total_keranjang():
     if 'keranjang' not in st.session_state or not st.session_state.keranjang:
         return 0
     return sum(item['subtotal'] for item in st.session_state.keranjang)
-
-def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
-    """Memproses transaksi dan menyimpan ke database"""
-    if 'keranjang' not in st.session_state or not st.session_state.keranjang:
-        st.error("Keranjang belanja kosong.")
-        return False
-    
-    id_transaksi = hasilkan_id_transaksi()
-    total_belanja = dapatkan_total_keranjang()
-
-    if jumlah_pembayaran < total_belanja:
-        st.error("Pembayaran kurang dari total belanja.")
-        return False
-    
-    jumlah_kembalian = jumlah_pembayaran - total_belanja
-    tanggal_transaksi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Masukkan header transaksi
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    try:
-        # Masukkan header transaksi
-        cursor.execute("""
-            INSERT INTO transactions 
-            (invoice_number, total_amount, payment_method, cashier_id, created_at) 
-            VALUES (?, ?, ?, ?, ?)
-        """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
-        
-        # Masukkan detail transaksi dan update stok
-        for item in st.session_state.keranjang:
-            cursor.execute("""
-                INSERT INTO transaction_items
-                (transaction_id, product_id, quantity, price_per_unit, subtotal)
-                VALUES (?, ?, ?, ?, ?)
-            """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
-            
-            # Perbarui stok produk setelah transaksi
-            berhasil, pesan = perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok berdasarkan jumlah produk
-
-            # Jika ada masalah dalam memperbarui stok, tampilkan pesan error
-            if not berhasil:
-                st.error(pesan)
-                conn.rollback()
-                return False
-        
-        conn.commit()  # Simpan semua perubahan
-        bersihkan_keranjang()  # Kosongkan keranjang setelah transaksi selesai
-        return {
-            'id_transaksi': id_transaksi,
-            'total': total_belanja,
-            'pembayaran': jumlah_pembayaran,
-            'kembalian': jumlah_kembalian,
-            'tanggal': tanggal_transaksi
-        }
-    
-    except Exception as e:
-        conn.rollback()
-        st.error(f"Error dalam transaksi: {str(e)}")
-        return False
-    finally:
-        conn.close()
