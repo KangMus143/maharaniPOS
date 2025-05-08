@@ -48,15 +48,7 @@ def get_low_stock_products(threshold=10):
     return get_dataframe_from_query(query, (threshold,))
 
 def perbarui_stok_produk(id_produk, perubahan_stok):
-    """Memperbarui stok produk (tambah atau kurangi)
-    
-    Args:
-        id_produk (int): ID produk yang akan diperbarui stoknya
-        perubahan_stok (int): Jumlah untuk menambah (positif) atau mengurangi (negatif) stok
-        
-    Returns:
-        tuple: (sukses, pesan) - sukses adalah boolean, pesan adalah string
-    """
+    """Memperbarui stok produk (tambah atau kurangi)"""
     query = '''
     UPDATE products
     SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
