@@ -8,10 +8,6 @@ from modules.products import ambil_produk_berdasarkan_id, perbarui_stok_produk
 def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     """Memproses transaksi dan menyimpan ke database"""
     if 'keranjang' not in st.session_state or not st.session_state.keranjang:
- print("Keranjang kosong saat proses transaksi.")
- if 'keranjang' not in st.session_state:
- print("st.session_state.keranjang tidak ada.")
- else: print("st.session_state.keranjang kosong atau None.")
         st.error("Keranjang belanja kosong.")
         return False
     
@@ -24,9 +20,6 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
     
     jumlah_kembalian = jumlah_pembayaran - total_belanja
     tanggal_transaksi = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
- print(f"Memulai proses transaksi: ID={id_transaksi}, Total={total_belanja}")
- print(f"Isi keranjang: {st.session_state.keranjang}")
     
     # Masukkan header transaksi
     conn = get_db_connection()
@@ -42,15 +35,11 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
         
         # Masukkan detail transaksi dan update stok
         for item in st.session_state.keranjang:
- print(f"Memproses item: ID Produk={item['id']}, Jumlah={item['quantity']}")
             cursor.execute("""
                 INSERT INTO transaction_items
                 (transaction_id, product_id, quantity, price_per_unit, subtotal)
                 VALUES (?, ?, ?, ?, ?)
             """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
-            
- print(f"Memperbarui stok produk: ID={item['id']}, Perubahan={-item['quantity']}")
-            # Perbarui stok produk setelah transaksi
             berhasil, pesan = perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok berdasarkan jumlah produk
 
             # Jika ada masalah dalam memperbarui stok, tampilkan pesan error
@@ -58,8 +47,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
                 st.error(pesan)
                 conn.rollback()
                 return False
- print(f"Hasil perbarui_stok_produk: Berhasil={berhasil}, Pesan={pesan}")
-        
+            print(f"Hasil perbarui_stok_produk: Berhasil={berhasil}, Pesan={pesan}")
         conn.commit()  # Simpan semua perubahan
         bersihkan_keranjang()  # Kosongkan keranjang setelah transaksi selesai
         return {
@@ -70,7 +58,6 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
             'tanggal': tanggal_transaksi
         }
     
- print(f"Error dalam transaksi: {str(e)}")
     except Exception as e:
         conn.rollback()
         st.error(f"Error dalam transaksi: {str(e)}")
