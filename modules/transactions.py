@@ -78,18 +78,20 @@ def show_receipt(transaction_id):
     '''
     
     conn = get_db_connection()
-    transaction = pd.read_sql_query(query, conn, params=(transaction_id,))
+    cursor = conn.cursor()
+    cursor.execute(query, (transaction_id,))
+    transaction = cursor.fetchone()
     conn.close()
     
-    if transaction.empty:
+    if not transaction:
         st.error(f"Transaksi dengan ID {transaction_id} tidak ditemukan.")
     else:
         st.subheader(f"Struk Transaksi {transaction_id}")
-        st.write(f"Nomor Faktur: {transaction.iloc[0]['invoice_number']}")
-        st.write(f"Total: Rp {transaction.iloc[0]['total_amount']:,.0f}")
-        st.write(f"Metode Pembayaran: {transaction.iloc[0]['payment_method']}")
-        st.write(f"Tanggal: {transaction.iloc[0]['created_at']}")
-        st.write(f"Kasir: {transaction.iloc[0]['cashier']}")
+        st.write(f"Nomor Faktur: {transaction['invoice_number']}")
+        st.write(f"Total: Rp {transaction['total_amount']:,.0f}")
+        st.write(f"Metode Pembayaran: {transaction['payment_method']}")
+        st.write(f"Tanggal: {transaction['created_at']}")
+        st.write(f"Kasir: {transaction['cashier']}")
         
         # Tampilkan detail produk dalam transaksi
         query_details = '''
@@ -99,12 +101,14 @@ def show_receipt(transaction_id):
         WHERE ti.transaction_id = ?
         '''
         conn = get_db_connection()
-        items = pd.read_sql_query(query_details, conn, params=(transaction_id,))
+        cursor = conn.cursor()
+        cursor.execute(query_details, (transaction_id,))
+        items = cursor.fetchall()
         conn.close()
 
-        if not items.empty:
+        if items:
             st.write("**Detail Produk**")
-            for index, item in items.iterrows():
+            for item in items:
                 st.write(f"**{item['name']}** x {item['quantity']} - Rp {item['subtotal']:,.0f}")
         else:
             st.info("Tidak ada produk dalam transaksi.")
@@ -115,23 +119,28 @@ def transaction_history():
 
     # Ambil data transaksi dari database
     query = '''
-    SELECT t.id, t.invoice_number, t.total_amount, t.payment_method, t.created_at, u.username AS cashier
+    SELECT t.invoice_number, t.total_amount, t.payment_method, t.created_at, u.username AS cashier
     FROM transactions t
     JOIN users u ON t.cashier_id = u.id
     ORDER BY t.created_at DESC
     '''
     
     conn = get_db_connection()
-    df = pd.read_sql_query(query, conn)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    transactions = cursor.fetchall()
     conn.close()
 
-    if df.empty:
+    if not transactions:
         st.info("Belum ada transaksi yang dilakukan.")
     else:
+        # Convert to DataFrame for display
+        df = pd.DataFrame([dict(t) for t in transactions])
         st.write(df)
         
         # Pilih transaksi untuk melihat detail
-        transaction_id = st.selectbox("Pilih Transaksi", df['invoice_number'])
+        transaction_ids = [t['invoice_number'] for t in transactions]
+        transaction_id = st.selectbox("Pilih Transaksi", transaction_ids)
         
         if transaction_id:
             # Tampilkan detail transaksi berdasarkan ID
@@ -142,12 +151,16 @@ def transaction_history():
             WHERE ti.transaction_id = ?
             '''
             conn = get_db_connection()
-            transaction_items = pd.read_sql_query(query_details, conn, params=(transaction_id,))
+            cursor = conn.cursor()
+            cursor.execute(query_details, (transaction_id,))
+            transaction_items = cursor.fetchall()
             conn.close()
             
-            if not transaction_items.empty:
+            if transaction_items:
                 st.subheader(f"Detail Transaksi {transaction_id}")
-                st.write(transaction_items)
+                # Convert to DataFrame for display
+                items_df = pd.DataFrame([dict(item) for item in transaction_items])
+                st.write(items_df)
             else:
                 st.info(f"Tidak ada detail transaksi untuk {transaction_id}")
 
@@ -217,24 +230,24 @@ def tambah_ke_keranjang(id_produk, jumlah):
         st.error("Produk tidak ditemukan.")
         return False
     
-    if produk['stok'] < jumlah:
-        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stok']}")
+    if produk['stock'] < jumlah:
+        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stock']}")
         return False
     
     # Periksa apakah produk sudah ada di keranjang
     for item in st.session_state.keranjang:
-        if item['id_produk'] == id_produk:
-            item['jumlah'] += jumlah
-            item['subtotal'] = item['jumlah'] * item['harga']
+        if item['id'] == id_produk:
+            item['quantity'] += jumlah
+            item['subtotal'] = item['quantity'] * item['price']
             return True
     
     # Tambahkan item baru ke keranjang
     st.session_state.keranjang.append({
-        'id_produk': id_produk,
-        'nama': produk['nama'],
-        'harga': produk['harga'],
-        'jumlah': jumlah,
-        'subtotal': produk['harga'] * jumlah
+        'id': id_produk,
+        'name': produk['name'],
+        'price': produk['price'],
+        'quantity': jumlah,
+        'subtotal': produk['price'] * jumlah
     })
     return True
 
@@ -244,14 +257,14 @@ def perbarui_item_keranjang(indeks, jumlah):
         return False
     
     item = st.session_state.keranjang[indeks]
-    produk = ambil_produk_berdasarkan_id(item['id_produk'])
+    produk = ambil_produk_berdasarkan_id(item['id'])
     
-    if produk['stok'] < jumlah:
-        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stok']}")
+    if produk['stock'] < jumlah:
+        st.error(f"Stok tidak mencukupi. Tersedia: {produk['stock']}")
         return False
     
-    item['jumlah'] = jumlah
-    item['subtotal'] = jumlah * item['harga']
+    item['quantity'] = jumlah
+    item['subtotal'] = jumlah * item['price']
     return True
 
 def hapus_dari_keranjang(indeks):
