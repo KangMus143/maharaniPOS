@@ -49,6 +49,7 @@ def get_low_stock_products(threshold=10):
 
 def perbarui_stok_produk(id_produk, perubahan_stok):
     """Memperbarui stok produk (tambah atau kurangi)"""
+    print(f"DEBUG: Memperbarui stok untuk Produk ID: {id_produk}, Perubahan: {perubahan_stok}")
     query = '''
     UPDATE products
     SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
@@ -67,10 +68,12 @@ def perbarui_stok_produk(id_produk, perubahan_stok):
             result = cursor.fetchone()
             
             if not result:
+                print(f"DEBUG: Gagal perbarui stok - Produk dengan ID {id_produk} tidak ditemukan")
                 return False, f"Produk dengan ID {id_produk} tidak ditemukan"
                 
-            stok_saat_ini = result['stock']
+            stok_saat_ini = result[0]
             if stok_saat_ini + perubahan_stok < 0:
+                print(f"DEBUG: Gagal perbarui stok - Stok tidak cukup untuk Produk ID {id_produk}. Tersedia: {stok_saat_ini}")
                 return False, f"Stok tidak cukup. Tersedia: {stok_saat_ini}"
         
         # Lakukan update stok
@@ -78,18 +81,21 @@ def perbarui_stok_produk(id_produk, perubahan_stok):
         
         if cursor.rowcount == 0:
             return False, f"Produk dengan ID {id_produk} tidak ditemukan"
-            
+
         conn.commit()
+        print(f"DEBUG: Berhasil perbarui stok untuk Produk ID: {id_produk}")
         return True, "Stok produk berhasil diperbarui"
     
     except Exception as e:
         if conn:
             conn.rollback()
+        print(f"DEBUG: Error perbarui stok untuk Produk ID {id_produk}: {str(e)}")
         return False, f"Error: {str(e)}"
     
     finally:
         if conn:
             conn.close()
+
 
 def ambil_produk_berdasarkan_id(id_produk):
     """Mengambil produk berdasarkan ID"""
@@ -103,7 +109,13 @@ def ambil_produk_berdasarkan_id(id_produk):
     conn.close()
     
     if product:
-        return dict(product)
+        return {
+            "id": product[0],
+            "name": product[1],
+            "category": product[2],
+            "price": product[3],
+            "stock": product[4]
+        }
     return None
     
 def tambah_produk(nama, kategori, harga, stok):
