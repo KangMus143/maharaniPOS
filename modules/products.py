@@ -1,283 +1,393 @@
 import streamlit as st
 import pandas as pd
-from .database import get_db_connection, execute_query, get_dataframe_from_query
-
-def get_product_categories():
-    """Mengambil semua kategori produk yang ada di database"""
-    query = "SELECT DISTINCT category FROM products ORDER BY category"
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute(query)
-    categories = cursor.fetchall()
-    conn.close()
-
-    # Mengembalikan daftar kategori
-    return [category[0] for category in categories]
-
-def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
-    """Dapatkan laporan penjualan antara dua tanggal"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            SELECT 
-                t.id_transaksi,
-                t.tanggal_transaksi,
-                t.nama_pelanggan,
-                t.total_belanja,
-                t.metode_pembayaran
-            FROM transaksi t
-            WHERE t.tanggal_transaksi BETWEEN ? AND ?
-            ORDER BY t.tanggal_transaksi DESC
-        """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
-        
-        transaksi = cursor.fetchall()
-        return [dict(row) for row in transaksi]
-    
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-        return []
-    finally:
-        conn.close()
-
-def get_low_stock_products(threshold=10):
-    """Mengambil produk dengan stok di bawah threshold"""
-    query = "SELECT * FROM products WHERE stock <= ? ORDER BY stock ASC"
-    return get_dataframe_from_query(query, (threshold,))
-
-def perbarui_stok_produk(id_produk, perubahan_stok):
-    """Memperbarui stok produk (tambah atau kurangi)"""
-    print(f"DEBUG: Memperbarui stok untuk Produk ID: {id_produk}, Perubahan: {perubahan_stok}")
-    query = '''
-    UPDATE products
-    SET stock = stock + ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    '''
-    
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Periksa stok saat ini jika pengurangan stok
-        if perubahan_stok < 0:
-            check_query = "SELECT stock FROM products WHERE id = ?"
-            cursor.execute(check_query, (id_produk,))
-            result = cursor.fetchone()
-            
-            if not result:
-                print(f"DEBUG: Gagal perbarui stok - Produk dengan ID {id_produk} tidak ditemukan")
-                return False, f"Produk dengan ID {id_produk} tidak ditemukan"
-                
-            stok_saat_ini = result[0]
-            if stok_saat_ini + perubahan_stok < 0:
-                print(f"DEBUG: Gagal perbarui stok - Stok tidak cukup untuk Produk ID {id_produk}. Tersedia: {stok_saat_ini}")
-                return False, f"Stok tidak cukup. Tersedia: {stok_saat_ini}"
-        
-        # Lakukan update stok
-        cursor.execute(query, (perubahan_stok, id_produk))
-        
-        if cursor.rowcount == 0:
-            return False, f"Produk dengan ID {id_produk} tidak ditemukan"
-
-        conn.commit()
-        print(f"DEBUG: Berhasil perbarui stok untuk Produk ID: {id_produk}")
-        return True, "Stok produk berhasil diperbarui"
-    
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        print(f"DEBUG: Error perbarui stok untuk Produk ID {id_produk}: {str(e)}")
-        return False, f"Error: {str(e)}"
-    
-    finally:
-        if conn:
-            conn.close()
-
-
-def ambil_produk_berdasarkan_id(id_produk):
-    """Mengambil produk berdasarkan ID"""
-    query = "SELECT * FROM products WHERE id = ?"
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    cursor.execute(query, (id_produk,))
-    product = cursor.fetchone()
-    
-    conn.close()
-    
-    if product:
-        return {
-            "id": product[0],
-            "name": product[1],
-            "category": product[2],
-            "price": product[3],
-            "stock": product[4]
-        }
-    return None
-    
-def tambah_produk(nama, kategori, harga, stok):
-    """Menambahkan produk baru ke database"""
-    query = '''
-    INSERT INTO products (name, category, price, stock)
-    VALUES (?, ?, ?, ?)
-    '''
-    
-    try:
-        execute_query(query, (nama, kategori, harga, stok))
-        return True, f"Produk '{nama}' berhasil ditambahkan"
-    except sqlite3.IntegrityError:
-        return False, f"Produk '{nama}' sudah ada"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def perbarui_produk(id_produk, nama, kategori, harga, stok):
-    """Memperbarui produk yang ada"""
-    query = '''
-    UPDATE products
-    SET name = ?, category = ?, price = ?, stock = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-    '''
-    
-    try:
-        execute_query(query, (nama, kategori, harga, stok, id_produk))
-        return True, f"Produk '{nama}' berhasil diperbarui"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def hapus_produk(id_produk):
-    """Menghapus produk dari database"""
-    check_query = '''
-    SELECT COUNT(*) as count FROM transaction_items WHERE product_id = ?
-    '''
-    result = execute_query(check_query, (id_produk,), fetchall=False)
-    
-    if result and result[0] > 0:
-        return False, "Tidak dapat menghapus produk karena digunakan dalam transaksi"
-    
-    query = "DELETE FROM products WHERE id = ?"
-    try:
-        execute_query(query, (id_produk,))
-        return True, "Produk berhasil dihapus"
-    except Exception as e:
-        return False, f"Error: {str(e)}"
-
-def ambil_produk_list(search_term="", kategori=""):
-    """Mengambil daftar produk dengan filter opsional"""
-    query = "SELECT * FROM products"
-    params = []
-    
-    conditions = []
-    if search_term:
-        conditions.append("name LIKE ?")
-        params.append(f"%{search_term}%")
-    
-    if kategori and kategori != "Semua":
-        conditions.append("category = ?")
-        params.append(kategori)
-    
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    
-    query += " ORDER BY category, name"
-    
-    return get_dataframe_from_query(query, params)
+from .database import get_db_connection
 
 def product_management():
-    """Antarmuka manajemen produk"""
-    st.subheader("Manajemen Produk")
+    """Manage products - add, update, delete, view"""
+    st.title("Manajemen Produk")
     
-    # Tab 1: Daftar Produk
-    with st.expander("Daftar Produk"):
-        col1, col2 = st.columns([3, 1])
+    # Create tabs for different product management operations
+    tab1, tab2, tab3 = st.tabs(["Daftar Produk", "Tambah Produk", "Update Stok"])
+    
+    with tab1:
+        display_product_list()
+    
+    with tab2:
+        add_product_form()
+    
+    with tab3:
+        update_stock_form()
+
+def display_product_list():
+    """Display the list of products with search and filter options"""
+    st.subheader("Daftar Produk")
+    
+    # Search and filter options
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        search_term = st.text_input("Cari Produk", "")
+    with col2:
+        filter_category = st.selectbox("Kategori", ["Semua"] + get_product_categories())
+    
+    # Get products with filtering
+    products = get_products(search_term, filter_category)
+    
+    if not products:
+        st.info("Tidak ada produk yang ditemukan.")
+        return
+    
+    # Convert to DataFrame for display
+    df = pd.DataFrame(products)
+    
+    # Display products
+    for i, product in df.iterrows():
+        col1, col2, col3 = st.columns([3, 1, 1])
         
         with col1:
-            search_term = st.text_input("Cari Produk", key="product_search")
+            st.write(f"**{product['name']}** - {product['category']}")
+            st.write(f"Harga: Rp {product['price']:,.0f} | Stok: {product['stock']}")
         
         with col2:
-            categories = ["Semua"] + get_product_categories()
-            category_filter = st.selectbox("Kategori", categories, key="category_filter")
+            if st.button("Edit", key=f"edit_{product['id']}"):
+                st.session_state.edit_product_id = product['id']
+                st.session_state.edit_product_data = product
+                st.experimental_rerun()
         
-        # Ambil produk dengan filter
-        products_df = ambil_produk_list(search_term, category_filter)
+        with col3:
+            if st.button("Hapus", key=f"delete_{product['id']}"):
+                delete_product(product['id'])
+                st.success(f"Produk {product['name']} berhasil dihapus")
+                st.experimental_rerun()
         
-        if products_df.empty:
-            st.info("Tidak ada produk ditemukan")
-        else:
-            for index, product in products_df.iterrows():
-                col1, col2, col3 = st.columns([2, 1, 1])
-                
-                with col1:
-                    st.write(f"**{product['name']}**")
-                    st.write(f"Kategori: {product['category']}")
-                
-                with col2:
-                    st.write(f"Harga: Rp {product['price']:,.0f}")
-                    st.write(f"Stok: {product['stock']}")
-                
-                with col3:
-                    if st.button("Edit", key=f"edit_{product['id']}"):
-                        st.session_state.editing_product = product['id']
-                        st.experimental_rerun()
-                    
-                    if st.button("Hapus", key=f"delete_{product['id']}"):
-                        success, message = hapus_produk(product['id'])
-                        if success:
-                            st.success(message)
-                            st.experimental_rerun()
-                        else:
-                            st.error(message)
-                
-                # Menampilkan form edit produk jika produk sedang diedit
-                if st.session_state.get("editing_product") == product['id']:
-                    with st.form(key=f"edit_product_form_{product['id']}"):
-                        st.subheader(f"Edit Produk: {product['name']}")
-                        
-                        name = st.text_input("Nama Produk", value=product['name'])
-                        categories = get_product_categories()
-                        category = st.selectbox("Kategori", categories, index=categories.index(product['category']))
-                        price = st.number_input("Harga (Rp)", min_value=0.0, value=float(product['price']), step=1000.0)
-                        stock = st.number_input("Stok", min_value=0, value=int(product['stock']))
-                        
-                        submit = st.form_submit_button("Perbarui")
-                        if submit:
-                            success, message = perbarui_produk(product['id'], name, category, price, stock)
-                            if success:
-                                st.success(message)
-                                st.session_state.editing_product = None
-                                st.experimental_rerun()
-                            else:
-                                st.error(message)
-                
-                st.divider()
+        st.divider()
     
-    # Tab 2: Tambah Produk Baru
-    with st.expander("Tambah Produk Baru"):
-        with st.form(key="add_product_form"):
-            st.subheader("Tambah Produk")
+    # Edit product form (show if a product is selected for editing)
+    if "edit_product_id" in st.session_state and "edit_product_data" in st.session_state:
+        with st.form("edit_product_form"):
+            st.subheader(f"Edit Produk: {st.session_state.edit_product_data['name']}")
             
-            name = st.text_input("Nama Produk")
-            categories = get_product_categories()
-            category_option = st.selectbox("Kategori", categories + ["Kategori Baru"], index=len(categories) if categories else 0)
+            name = st.text_input("Nama Produk", st.session_state.edit_product_data['name'])
+            price = st.number_input("Harga (Rp)", min_value=0.0, value=float(st.session_state.edit_product_data['price']))
+            stock = st.number_input("Stok", min_value=0, value=int(st.session_state.edit_product_data['stock']))
+            category = st.text_input("Kategori", st.session_state.edit_product_data['category'])
+            description = st.text_area("Deskripsi", st.session_state.edit_product_data.get('description', ''))
+            barcode = st.text_input("Barcode (Opsional)", st.session_state.edit_product_data.get('barcode', ''))
             
-            if category_option == "Kategori Baru":
-                category = st.text_input("Nama Kategori Baru")
-            else:
-                category = category_option
+            submit = st.form_submit_button("Update Produk")
             
-            price = st.number_input("Harga (Rp)", min_value=0.0, value=0.0, step=1000.0)
-            stock = st.number_input("Stok Awal", min_value=0, value=0)
-            
-            submit = st.form_submit_button("Tambah Produk")
             if submit:
-                if not name or not category:
-                    st.error("Harap lengkapi semua kolom")
+                product_data = {
+                    'name': name,
+                    'price': price,
+                    'stock': stock,
+                    'category': category,
+                    'description': description,
+                    'barcode': barcode
+                }
+                
+                update_product(st.session_state.edit_product_id, product_data)
+                st.success(f"Produk {name} berhasil diupdate")
+                
+                # Clear the edit state
+                del st.session_state.edit_product_id
+                del st.session_state.edit_product_data
+                st.experimental_rerun()
+
+def add_product_form():
+    """Form to add a new product"""
+    st.subheader("Tambah Produk Baru")
+    
+    with st.form("add_product_form"):
+        name = st.text_input("Nama Produk")
+        price = st.number_input("Harga (Rp)", min_value=0.0, step=1000.0)
+        stock = st.number_input("Stok Awal", min_value=0)
+        category = st.text_input("Kategori")
+        description = st.text_area("Deskripsi (Opsional)")
+        barcode = st.text_input("Barcode (Opsional)")
+        
+        submit = st.form_submit_button("Tambah Produk")
+        
+        if submit:
+            if not name or price <= 0 or not category:
+                st.error("Nama produk, harga, dan kategori harus diisi!")
+            else:
+                product_data = {
+                    'name': name,
+                    'price': price,
+                    'stock': stock,
+                    'category': category,
+                    'description': description,
+                    'barcode': barcode
+                }
+                
+                add_product(product_data)
+                st.success(f"Produk {name} berhasil ditambahkan")
+                st.experimental_rerun()
+
+def update_stock_form():
+    """Form to update product stock"""
+    st.subheader("Update Stok Produk")
+    
+    products = get_products()
+    if not products:
+        st.info("Tidak ada produk yang terdaftar.")
+        return
+    
+    # Convert to list of dictionaries with id and name for the selectbox
+    product_options = [{"id": p["id"], "name": p["name"]} for p in products]
+    
+    # Create a selectbox with product names
+    selected_product = st.selectbox(
+        "Pilih Produk",
+        options=range(len(product_options)),
+        format_func=lambda i: product_options[i]["name"]
+    )
+    
+    # Get the selected product ID
+    product_id = product_options[selected_product]["id"]
+    
+    # Get the current product details
+    product = ambil_produk_berdasarkan_id(product_id)
+    
+    if product:
+        st.write(f"Stok Saat Ini: {product['stock']}")
+        
+        # Options for stock adjustment
+        action = st.radio("Tindakan", ["Tambah Stok", "Kurangi Stok"])
+        
+        # Amount to adjust
+        amount = st.number_input("Jumlah", min_value=1, value=1)
+        
+        # Reason for adjustment
+        reason = st.text_input("Alasan Penyesuaian (Opsional)")
+        
+        if st.button("Update Stok"):
+            # Determine the adjustment (positive for addition, negative for reduction)
+            adjustment = amount if action == "Tambah Stok" else -amount
+            
+            # Check if reduction would result in negative stock
+            if action == "Kurangi Stok" and product["stock"] < amount:
+                st.error("Stok tidak mencukupi untuk pengurangan!")
+            else:
+                success, message = perbarui_stok_produk(product_id, adjustment, reason)
+                if success:
+                    st.success(message)
+                    st.experimental_rerun()
                 else:
-                    success, message = tambah_produk(name, category, price, stock)
-                    if success:
-                        st.success(message)
-                        st.experimental_rerun()
-                    else:
-                        st.error(message)
+                    st.error(message)
+
+def get_products(search_term="", category="Semua"):
+    """Get list of products with optional filtering"""
+    conn = get_db_connection()
+    
+    # Determine if we're using Supabase or SQLite
+    if hasattr(conn, 'table'):  # Supabase client
+        query = conn.table('products').select('*')
+        
+        if search_term:
+            query = query.ilike('name', f'%{search_term}%')
+        
+        if category and category != "Semua":
+            query = query.eq('category', category)
+        
+        response = query.order('name').execute()
+        products = response.data
+    else:  # SQLite connection
+        cursor = conn.cursor()
+        
+        sql = "SELECT * FROM products"
+        params = []
+        
+        if search_term or (category and category != "Semua"):
+            sql += " WHERE"
+            
+            if search_term:
+                sql += " name LIKE ?"
+                params.append(f"%{search_term}%")
+                
+                if category and category != "Semua":
+                    sql += " AND"
+            
+            if category and category != "Semua":
+                sql += " category = ?"
+                params.append(category)
+        
+        sql += " ORDER BY name"
+        
+        cursor.execute(sql, params)
+        products = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+    
+    return products
+
+def get_product_categories():
+    """Get unique list of product categories"""
+    conn = get_db_connection()
+    
+    # Determine if we're using Supabase or SQLite
+    if hasattr(conn, 'table'):  # Supabase client
+        response = conn.table('products').select('category').execute()
+        categories = set(item['category'] for item in response.data)
+    else:  # SQLite connection
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT category FROM products ORDER BY category")
+        categories = set(row['category'] for row in cursor.fetchall())
+        conn.close()
+    
+    return sorted(list(categories))
+
+def ambil_produk_berdasarkan_id(product_id):
+    """Get product by its ID"""
+    conn = get_db_connection()
+    
+    # Determine if we're using Supabase or SQLite
+    if hasattr(conn, 'table'):  # Supabase client
+        response = conn.table('products').select('*').eq('id', product_id).execute()
+        if response.data:
+            return response.data[0]
+        return None
+    else:  # SQLite connection
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+        product = cursor.fetchone()
+        conn.close()
+        
+        if product:
+            return dict(product)
+        return None
+
+def add_product(product_data):
+    """Add a new product to the database"""
+    conn = get_db_connection()
+    
+    try:
+        # Determine if we're using Supabase or SQLite
+        if hasattr(conn, 'table'):  # Supabase client
+            response = conn.table('products').insert(product_data).execute()
+            return True, "Produk berhasil ditambahkan"
+        else:  # SQLite connection
+            cursor = conn.cursor()
+            
+            columns = ', '.join(product_data.keys())
+            placeholders = ', '.join(['?'] * len(product_data))
+            
+            sql = f"INSERT INTO products ({columns}) VALUES ({placeholders})"
+            
+            cursor.execute(sql, list(product_data.values()))
+            conn.commit()
+            conn.close()
+            
+            return True, "Produk berhasil ditambahkan"
+    except Exception as e:
+        if not hasattr(conn, 'table'):  # SQLite connection
+            conn.close()
+        return False, f"Error: {str(e)}"
+
+def update_product(product_id, product_data):
+    """Update an existing product"""
+    conn = get_db_connection()
+    
+    try:
+        # Determine if we're using Supabase or SQLite
+        if hasattr(conn, 'table'):  # Supabase client
+            response = conn.table('products').update(product_data).eq('id', product_id).execute()
+            return True, "Produk berhasil diupdate"
+        else:  # SQLite connection
+            cursor = conn.cursor()
+            
+            set_clause = ', '.join([f"{key} = ?" for key in product_data.keys()])
+            values = list(product_data.values())
+            values.append(product_id)
+            
+            sql = f"UPDATE products SET {set_clause} WHERE id = ?"
+            
+            cursor.execute(sql, values)
+            conn.commit()
+            conn.close()
+            
+            return True, "Produk berhasil diupdate"
+    except Exception as e:
+        if not hasattr(conn, 'table'):  # SQLite connection
+            conn.close()
+        return False, f"Error: {str(e)}"
+
+def delete_product(product_id):
+    """Delete a product by its ID"""
+    conn = get_db_connection()
+    
+    try:
+        # Determine if we're using Supabase or SQLite
+        if hasattr(conn, 'table'):  # Supabase client
+            response = conn.table('products').delete().eq('id', product_id).execute()
+            return True, "Produk berhasil dihapus"
+        else:  # SQLite connection
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+            conn.commit()
+            conn.close()
+            
+            return True, "Produk berhasil dihapus"
+    except Exception as e:
+        if not hasattr(conn, 'table'):  # SQLite connection
+            conn.close()
+        return False, f"Error: {str(e)}"
+
+def perbarui_stok_produk(product_id, adjustment, reason=""):
+    """Update product stock by adding or subtracting"""
+    conn = get_db_connection()
+    
+    try:
+        # Get current product info
+        product = ambil_produk_berdasarkan_id(product_id)
+        
+        if not product:
+            return False, "Produk tidak ditemukan"
+        
+        # Calculate new stock
+        new_stock = product['stock'] + adjustment
+        
+        # Prevent negative stock
+        if new_stock < 0:
+            return False, "Stok tidak boleh negatif"
+        
+        # Determine if we're using Supabase or SQLite
+        if hasattr(conn, 'table'):  # Supabase client
+            response = conn.table('products').update({
+                'stock': new_stock,
+                'updated_at': 'now()'
+            }).eq('id', product_id).execute()
+            
+            action = "ditambahkan" if adjustment > 0 else "dikurangi"
+            return True, f"Stok produk berhasil {action} menjadi {new_stock}"
+        else:  # SQLite connection
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE products SET stock = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                (new_stock, product_id)
+            )
+            conn.commit()
+            conn.close()
+            
+            action = "ditambahkan" if adjustment > 0 else "dikurangi"
+            return True, f"Stok produk berhasil {action} menjadi {new_stock}"
+    except Exception as e:
+        if not hasattr(conn, 'table'):  # SQLite connection
+            conn.close()
+        return False, f"Error: {str(e)}"
+
+def get_low_stock_products(threshold=10):
+    """Get products with stock below the threshold"""
+    conn = get_db_connection()
+    
+    # Determine if we're using Supabase or SQLite
+    if hasattr(conn, 'table'):  # Supabase client
+        response = conn.table('products').select('*').lt('stock', threshold).execute()
+        low_stock = response.data
+        return pd.DataFrame(low_stock) if low_stock else pd.DataFrame()
+    else:  # SQLite connection
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM products WHERE stock < ?", (threshold,))
+        low_stock = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        return pd.DataFrame(low_stock) if low_stock else pd.DataFrame()
