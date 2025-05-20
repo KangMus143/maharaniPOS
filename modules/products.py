@@ -69,7 +69,7 @@ def perbarui_stok_produk(id_produk, perubahan_stok):
             if not result:
                 return False, f"Produk dengan ID {id_produk} tidak ditemukan"
                 
-            stok_saat_ini = result[0]
+            stok_saat_ini = result['stock']
             if stok_saat_ini + perubahan_stok < 0:
                 return False, f"Stok tidak cukup. Tersedia: {stok_saat_ini}"
         
@@ -103,13 +103,7 @@ def ambil_produk_berdasarkan_id(id_produk):
     conn.close()
     
     if product:
-        return {
-            "id": product[0],
-            "name": product[1],
-            "category": product[2],
-            "price": product[3],
-            "stock": product[4]
-        }
+        return dict(product)
     return None
     
 def tambah_produk(nama, kategori, harga, stok):
