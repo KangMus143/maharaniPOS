@@ -15,17 +15,15 @@ def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                p.id,
-                p.name as product_name,
-                p.category,
-                SUM(ti.quantity) as total_quantity,
-                SUM(ti.subtotal) as total_sales
-            FROM transaction_items ti
-            JOIN transactions t ON ti.transaction_id = t.invoice_number
-            JOIN products p ON ti.product_id = p.id
+                t.invoice_number,
+                t.created_at,
+                t.total_amount,
+                t.payment_method,
+                u.username as cashier
+            FROM transactions t
+            JOIN users u ON t.cashier_id = u.id
             WHERE t.created_at BETWEEN ? AND ?
-            GROUP BY p.id, p.name, p.category
-            ORDER BY total_sales DESC
+            ORDER BY t.created_at DESC
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
         transaksi = cursor.fetchall()
@@ -39,23 +37,23 @@ def dapatkan_laporan_penjualan(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_penjualan_produk(tanggal_mulai, tanggal_akhir):
     """Dapatkan laporan penjualan produk antara dua tanggal"""
-    conn = get_db_connection()  # Ganti dengan get_db_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute("""
             SELECT 
-                p.id_produk,
-                p.nama as nama_produk,
-                p.kategori,
-                SUM(dt.jumlah) as total_jumlah,
-                SUM(dt.subtotal) as total_penjualan
-            FROM detail_transaksi dt
-            JOIN transaksi t ON dt.id_transaksi = t.id_transaksi
-            JOIN produk p ON dt.id_produk = p.id_produk
-            WHERE t.tanggal_transaksi BETWEEN ? AND ?
-            GROUP BY p.id_produk, p.nama, p.kategori
-            ORDER BY total_penjualan DESC
+                p.id,
+                p.name as product_name,
+                p.category,
+                SUM(ti.quantity) as total_quantity,
+                SUM(ti.subtotal) as total_sales
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.invoice_number
+            JOIN products p ON ti.product_id = p.id
+            WHERE t.created_at BETWEEN ? AND ?
+            GROUP BY p.id, p.name, p.category
+            ORDER BY total_sales DESC
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
         produk = cursor.fetchall()
@@ -75,15 +73,15 @@ def dapatkan_laporan_penjualan_kategori(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                p.kategori,
-                SUM(dt.jumlah) as total_jumlah,
-                SUM(dt.subtotal) as total_penjualan
-            FROM detail_transaksi dt
-            JOIN transaksi t ON dt.id_transaksi = t.id_transaksi
-            JOIN produk p ON dt.id_produk = p.id_produk
-            WHERE t.tanggal_transaksi BETWEEN ? AND ?
-            GROUP BY p.kategori
-            ORDER BY total_penjualan DESC
+                p.category,
+                SUM(ti.quantity) as total_quantity,
+                SUM(ti.subtotal) as total_sales
+            FROM transaction_items ti
+            JOIN transactions t ON ti.transaction_id = t.invoice_number
+            JOIN products p ON ti.product_id = p.id
+            WHERE t.created_at BETWEEN ? AND ?
+            GROUP BY p.category
+            ORDER BY total_sales DESC
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
         kategori = cursor.fetchall()
@@ -103,13 +101,13 @@ def dapatkan_laporan_metode_pembayaran(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                metode_pembayaran,
-                COUNT(*) as jumlah_transaksi,
-                SUM(total_belanja) as total_belanja
-            FROM transaksi
-            WHERE tanggal_transaksi BETWEEN ? AND ?
-            GROUP BY metode_pembayaran
-            ORDER BY total_belanja DESC
+                payment_method,
+                COUNT(*) as transaction_count,
+                SUM(total_amount) as total_amount
+            FROM transactions
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY payment_method
+            ORDER BY total_amount DESC
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
         metode_pembayaran = cursor.fetchall()
@@ -129,12 +127,12 @@ def dapatkan_laporan_penjualan_harian(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                DATE(tanggal_transaksi) as tanggal,
+                DATE(created_at) as tanggal,
                 COUNT(*) as jumlah_transaksi,
-                SUM(total_belanja) as total_belanja
-            FROM transaksi
-            WHERE tanggal_transaksi BETWEEN ? AND ?
-            GROUP BY DATE(tanggal_transaksi)
+                SUM(total_amount) as total_belanja
+            FROM transactions
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY DATE(created_at)
             ORDER BY tanggal
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
@@ -155,12 +153,12 @@ def dapatkan_laporan_penjualan_perjam(tanggal_mulai, tanggal_akhir):
     try:
         cursor.execute("""
             SELECT 
-                strftime('%H', tanggal_transaksi) as jam,
+                strftime('%H', created_at) as jam,
                 COUNT(*) as jumlah_transaksi,
-                SUM(total_belanja) as total_belanja
-            FROM transaksi
-            WHERE tanggal_transaksi BETWEEN ? AND ?
-            GROUP BY strftime('%H', tanggal_transaksi)
+                SUM(total_amount) as total_belanja
+            FROM transactions
+            WHERE created_at BETWEEN ? AND ?
+            GROUP BY strftime('%H', created_at)
             ORDER BY jam
         """, (tanggal_mulai, tanggal_akhir + " 23:59:59"))
         
@@ -180,19 +178,19 @@ def dapatkan_laporan_penjualan_perjam(tanggal_mulai, tanggal_akhir):
 
 def dapatkan_laporan_inventaris():
     """Dapatkan laporan status inventaris terkini"""
-    conn = get_db_connection()  # Ganti dengan get_db_connection()
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
         cursor.execute("""
             SELECT 
-                id_produk,
-                nama,
-                kategori,
-                harga,
-                stok,
-                harga * stok as nilai_inventaris
-            FROM produk
+                id,
+                name,
+                category,
+                price,
+                stock,
+                price * stock as nilai_inventaris
+            FROM products
             ORDER BY nilai_inventaris DESC
         """)
         
@@ -213,14 +211,14 @@ def dapatkan_laporan_stok_rendah(ambang_batas=10):
     try:
         cursor.execute("""
             SELECT 
-                id_produk,
-                nama,
-                kategori,
-                harga,
-                stok
-            FROM produk
-            WHERE stok <= ?
-            ORDER BY stok
+                id,
+                name,
+                category,
+                price,
+                stock
+            FROM products
+            WHERE stock <= ?
+            ORDER BY stock
         """, (ambang_batas,))
         
         stok_rendah = cursor.fetchall()
@@ -333,7 +331,7 @@ def tampilkan_dashboard_penjualan():
         return
     
     # Metrik ringkasan
-    total_penjualan = sum(item['total_belanja'] for item in data_penjualan)
+    total_penjualan = sum(item['total_amount'] for item in data_penjualan)
     total_transaksi = len(data_penjualan)
     rata_rata_transaksi = total_penjualan / total_transaksi if total_transaksi > 0 else 0
     
@@ -370,7 +368,7 @@ def tampilkan_dashboard_penjualan():
         if penjualan_kategori:
             df = pd.DataFrame(penjualan_kategori)
             grafik = buat_grafik_pie(
-                df, 'total_penjualan', 'kategori', 
+                df, 'total_sales', 'category', 
                 'Distribusi Penjualan per Kategori'
             )
             st.image(grafik)
@@ -380,7 +378,7 @@ def tampilkan_dashboard_penjualan():
         if metode_pembayaran:
             df = pd.DataFrame(metode_pembayaran)
             grafik = buat_grafik_batang(
-                df, 'metode_pembayaran', 'total_belanja', 
+                df, 'payment_method', 'total_amount', 
                 'Penjualan per Metode Pembayaran', 'Metode Pembayaran', 'Total Penjualan (Rp)'
             )
             st.image(grafik)
@@ -400,7 +398,7 @@ def tampilkan_dashboard_penjualan():
         if penjualan_produk:
             df = pd.DataFrame(penjualan_produk).head(10)  # 10 produk teratas
             grafik = buat_grafik_batang(
-                df, 'nama_produk', 'total_penjualan', 
+                df, 'product_name', 'total_sales', 
                 '10 Produk Terlaris', 'Produk', 'Total Penjualan (Rp)'
             )
             st.image(grafik)
@@ -489,7 +487,7 @@ def tampilkan_laporan_inventaris():
     # Metrik ringkasan
     total_produk = len(data_inventaris)
     total_nilai_inventaris = sum(item['nilai_inventaris'] for item in data_inventaris)
-    total_item = sum(item['stok'] for item in data_inventaris)
+    total_item = sum(item['stock'] for item in data_inventaris)
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -512,13 +510,13 @@ def tampilkan_laporan_inventaris():
     
     if not df_inventaris.empty:
         # Kelompokkan berdasarkan kategori
-        inventaris_kategori = df_inventaris.groupby('kategori').agg({
-            'stok': 'sum',
+        inventaris_kategori = df_inventaris.groupby('category').agg({
+            'stock': 'sum',
             'nilai_inventaris': 'sum'
         }).reset_index()
         
         # Buat grafik pie
-        buf = buat_grafik_pie(inventaris_kategori, 'nilai_inventaris', 'kategori', 'Nilai Inventaris per Kategori')
+        buf = buat_grafik_pie(inventaris_kategori, 'nilai_inventaris', 'category', 'Nilai Inventaris per Kategori')
         st.image(buf)
         
         # Tampilkan tabel
@@ -566,19 +564,19 @@ def tampilkan_performa_produk():
     df_produk = pd.DataFrame(penjualan_produk)
     
     # 10 teratas berdasarkan jumlah
-    teratas_jumlah = df_produk.sort_values('total_jumlah', ascending=False).head(10)
+    teratas_jumlah = df_produk.sort_values('total_quantity', ascending=False).head(10)
     st.write("Berdasarkan Jumlah Terjual:")
     buf = buat_grafik_batang(
-        teratas_jumlah, 'nama_produk', 'total_jumlah', 
+        teratas_jumlah, 'product_name', 'total_quantity', 
         '10 Produk Terlaris (Kuantitas)', 'Produk', 'Jumlah Terjual'
     )
     st.image(buf)
     
     # 10 teratas berdasarkan pendapatan
-    teratas_pendapatan = df_produk.sort_values('total_penjualan', ascending=False).head(10)
+    teratas_pendapatan = df_produk.sort_values('total_sales', ascending=False).head(10)
     st.write("Berdasarkan Penjualan:")
     buf = buat_grafik_batang(
-        teratas_pendapatan, 'nama_produk', 'total_penjualan', 
+        teratas_pendapatan, 'product_name', 'total_sales', 
         '10 Produk Terlaris (Penjualan)', 'Produk', 'Total Penjualan (Rp)'
     )
     st.image(buf)
@@ -591,7 +589,7 @@ def tampilkan_performa_produk():
         
         # Grafik pie kategori
         buf = buat_grafik_pie(
-            df_kategori, 'total_penjualan', 'kategori', 
+            df_kategori, 'total_sales', 'category', 
             'Distribusi Penjualan per Kategori'
         )
         st.image(buf)
