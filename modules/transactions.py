@@ -34,6 +34,7 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
         """, (id_transaksi, total_belanja, metode_pembayaran, 1, tanggal_transaksi))  # Asumsikan cashier_id adalah 1
         
         # Masukkan detail transaksi dan update stok
+        stock_update_failed = False
         for item in st.session_state.keranjang:
             cursor.execute("""
                 INSERT INTO transaction_items
@@ -42,13 +43,17 @@ def proses_transaksi(nama_pelanggan, metode_pembayaran, jumlah_pembayaran):
             """, (id_transaksi, item['id'], item['quantity'], item['price'], item['subtotal']))
             berhasil, pesan = perbarui_stok_produk(item['id'], -item['quantity'])  # Mengurangi stok berdasarkan jumlah produk
 
-            # Jika ada masalah dalam memperbarui stok, tampilkan pesan error
+            print(f"Hasil perbarui_stok_produk: Berhasil={berhasil}, Pesan={pesan}")
             if not berhasil:
                 st.error(pesan)
-                conn.rollback()
-                return False
-            print(f"Hasil perbarui_stok_produk: Berhasil={berhasil}, Pesan={pesan}")
-        conn.commit()  # Simpan semua perubahan
+                stock_update_failed = True
+                break  # Hentikan proses jika ada masalah stok
+
+        if stock_update_failed:
+            conn.rollback() # Rollback jika ada kesalahan stok
+            return False
+        else:
+            conn.commit()  # Simpan semua perubahan jika tidak ada kesalahan stok
         bersihkan_keranjang()  # Kosongkan keranjang setelah transaksi selesai
         return {
             'id_transaksi': id_transaksi,
